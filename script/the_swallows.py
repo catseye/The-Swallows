@@ -3,12 +3,114 @@
 import random
 import sys
 
-# todo: chapters
+# TODO
+# "in which bob hides the stolen jewels in the mailbox"
+# "where have you hidden the jewels?"
+# calling the police
+# trying to hide the body
 
-class Location:
+def pick(l):
+    return l[random.randint(0, len(l)-1)]
+
+### EVENTS ###
+
+class Event(object):
+    def __init__(self, phrase, participants, excl=False):
+        self.phrase = phrase
+        self.participants = participants
+        self.excl = excl
+    
+    def __str__(self):
+        phrase = self.phrase
+        i = 0
+        for participant in self.participants:
+            phrase = phrase.replace('<%d>' % (i + 1), str(participant))
+            phrase = phrase.replace('<his-%d>' % (i + 1), participant.posessive())
+            phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
+            phrase = phrase.replace('<he-%d>' % (i + 1), participant.pronoun())
+            i = i + 1
+        if self.excl:
+            phrase = phrase + '!'
+        else:
+            phrase = phrase + '.'
+        return phrase
+
+
+class EventCollector(object):
+    def __init__(self):
+        self.events = []
+    
+    def collect(self, event):
+        self.events.append(event)
+
+
+class Oblivion(EventCollector):
+    def collect(self, event):
+        pass
+
+oblivion = Oblivion()
+
+### OBJECTS ###
+
+class Actor(object):
+    def __init__(self, name, location, collector=None):
+        self.name = name
+        self.collector = collector
+        self.location = None
+        self.contents = []
+        self.enter = ""
+        self.move_to(location, initial=True)
+
+    def notable(self):
+        return False
+    
+    def treasure(self):  # impies notable usually
+        return False
+
+    def horror(self):  # impies notable usually
+        return False
+
+    def takeable(self):
+        return False
+
+    def animate(self):
+        return False
+
+    def container(self):
+        return False
+
+    def article(self):
+        return 'the'
+
+    def posessive(self):
+        return "its"
+
+    def accusative(self):
+        return "it"
+
+    def pronoun(self):
+        return "it"
+
+    def emit(self, *args, **kwargs):
+        if self.collector:
+            self.collector.collect(Event(*args, **kwargs))
+
+    def move_to(self, location, initial=False):
+        if self.location:
+            self.location.contents.remove(self)
+        self.location = location
+        self.location.contents.append(self)
+
+    def __str__(self):
+        article = self.article()
+        if not article:
+            return self.name
+        return '%s %s' % (article, self.name)
+
+
+class Location(Actor):
     def __init__(self, name, enter="went to"):
         self.name = name
-        self.article = 'the'
         self.enter = enter
         self.contents = []
         self.exits = []
@@ -17,104 +119,372 @@ class Location:
         self.exits = exits
 
 
-kitchen = Location('kitchen')
-living_room = Location('living room')
-dining_room = Location('dining room')
+class ProperLocation(Location):
+    def article(self):
+        return ''
 
-kitchen.set_exits(dining_room)
-living_room.set_exits(dining_room)
-dining_room.set_exits(living_room, kitchen)
+    def posessive(self):
+        return "its"
 
-locations = [kitchen, living_room, dining_room]
+    def accusative(self):
+        return "it"
 
 
-class Actor:
-    def __init__(self, name, article, location, emit_event=None):
-        self.name = name
-        self.article = article
-        self.emit_event = emit_event
-        if not self.emit_event:
-            self.emit_event = lambda(x): x
-        self.location = None
-        self.treasure = False
-        self.contents = []
-        self.enter = ""
-        self.move_to(location)
+class Animate(Actor):
+    def __init__(self, name, location, collector=None):
+        Actor.__init__(self, name, location, collector=None)
+        self.greeted_by = None
+        self.questioned_by = None
+        self.spoken_to_by = None
+        self.threatened_by = None
+        self.topic = None
 
-    def move_to(self, location):
+    def animate(self):
+        return True
+
+    def notable(self):
+        return True
+
+    def speak_to(self, other, phrase, participants=None):
+        if participants is None:
+            participants = [self, other]
+        other.spoken_to_by = self
+        self.emit(phrase, participants)
+
+    def greet(self, other, phrase, participants=None):
+        if participants is None:
+            participants = [self, other]
+        other.greeted_by = self
+        self.emit(phrase, participants)
+
+    def question(self, other, phrase, participants=None, topic=None):
+        if participants is None:
+            participants = [self, other]
+        other.questioned_by = self
+        other.topic = topic
+        self.emit(phrase, participants)
+
+    def threaten(self, other, phrase, participants=None, topic=None):
+        if participants is None:
+            participants = [self, other]
+        other.threatened_by = self
+        other.topic = topic
+        self.emit(phrase, participants)
+
+    def move_to(self, location, initial=False):
         if self.location:
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
-        self.emit_event(Event(self, self.location, self.location.enter))
+        if initial:
+            self.emit("<1> was in <2>", [self, self.location])
+        else:
+            self.emit("<1> went to <2>", [self, self.location])
+        if random.randint(0, 10) == 0:
+            self.emit("It was so nice being in <2> again",
+             [self, self.location], excl=True)
         for x in self.location.contents:
-            if x != self:
-                self.emit_event(Event(self, x, "saw"))
-                for y in x.contents:
-                    self.emit_event(Event(self, x, "saw", suffix=" was carrying something"))
+            if x != self and x.horror():
+                self.emit("<1> shouted at the sight of <2>", [self, x], excl=True)
+                return
+            if x != self and x.animate():
+                other = x
+                self.emit("<1> saw <2>", [self, other])
+                self.greet(x, "'Hello, <2>,' said <1>")
+                for y in other.contents:
+                    if y.treasure():
+                        self.emit(
+                            "<1> noticed <2> was carrying <3>",
+                            [self, other, y])
+                        for z in self.contents:
+                            if z.name == 'revolver':
+                                self.emit("<1> pointed <3> at <2>",
+                                    [self, other, z])
+                                self.threaten(other,
+                                    "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
+                                    [self, other, y])
+                                return
+            elif x != self and x.notable():
+                self.emit("<1> saw <2>", [self, x])
 
     def live(self):
+        if self.threatened_by:
+            other = self.threatened_by
+            topic = self.topic
+            self.topic = None
+            self.threatened_by = None
+            self.greeted_by = None  # sorta cancels that out
+            treasure = None
+            for x in self.contents:
+                if x.treasure():
+                    treasure = x
+                    break
+            if treasure:
+                self.speak_to(other,
+                    "'Please don't shoot!', <1> cried, and handed over <3>",
+                    [self, other, treasure])
+                treasure.move_to(other)
+
+        if self.greeted_by:
+            other = self.greeted_by
+            self.greeted_by = None
+            # because making this a speak_to leads to too much silliness
+            self.emit("'Hello, <2>,' replied <1>", [self, other])
+            for x in other.contents:
+                if x.notable():
+                    self.speak_to(other, "'I see you are carrying <3>,' said <1>", [self, other, x])
+                    return
+            choice = random.randint(0, 3)
+            if choice == 0:
+                self.question(other, "'Lovely weather we're having, isn't it?' asked <1>")
+            if choice == 1:
+                self.speak_to(other, "'I was wondering where you were.' said <1>")
+            
+            return
+        if self.questioned_by:
+            other = self.questioned_by
+            topic = self.topic
+            self.topic = None
+            self.questioned_by = None
+            self.speak_to(other, "'Perhaps, <2>,' replied <1>")
+            return
+        if self.spoken_to_by:
+            other = self.spoken_to_by
+            self.spoken_to_by = None
+            choice = random.randint(0, 4)
+            if choice == 0:
+                self.emit("<1> nodded", [self])
+            if choice == 1:
+                self.emit("<1> remained silent", [self])
+            if choice == 2:
+                self.question(other, "'Do you really think so?' asked <1>")
+            if choice == 3:
+                self.speak_to(other, "'Yes, it's a shame really,' stated <1>")
+            if choice == 4:
+                self.speak_to(other, "'Oh, I know, I know,' said <1>")
+            return
         for x in self.location.contents:
-            if x.treasure:
-                self.emit_event(Event(self, x, "picked up"))
+            if x.notable() and x.takeable():
+                self.emit("<1> picked up <2>", [self, x])
                 x.move_to(self)
-        if random.randint(0, 10) == 0:
-            self.emit_event(Event(self, None, "yawned"))
+                return
+        people_about = False
+        
+        # what the character is aware they're carrying; occasionally = gun
+        treasure = None
+        for y in self.contents:
+            if y.treasure():
+                treasure = y
+                break
+        if not treasure and random.randint(0, 20) == 0:
+            for y in self.contents:
+                if y.name == 'revolver':
+                    treasure = y
+                    break
+
+        for x in self.location.contents:
+            if x.animate() and x is not self:
+                people_about = True
+        for x in self.location.contents:
+            if x.container() and not people_about and treasure:
+                self.emit("<1> hid <2> in <3>", [self, y, x])
+                y.move_to(x)
+                return self.wander()
+            if x.container() and not people_about and random.randint(0, 2) == 0:
+                self.emit("<1> examined <2> carefully", [self, x])
+                for y in x.contents:
+                    if y.notable() and y.takeable():
+                        self.emit("<1> found <2> hidden there, and took <him-2>", [self, y])
+                        y.move_to(self)
+        if random.randint(0, 8) == 0:
+            which = random.randint(0, 5)
+            if which == 0:
+                self.emit("<1> yawned", [self])
+            if which == 1:
+                self.emit("<1> gazed thoughtfully into the distance", [self])
+            if which == 2:
+                self.emit("<1> thought <he-1> heard something", [self])
+            if which == 3:
+                self.emit("<1> scratched <his-1> head", [self])
+            if which == 4:
+                self.emit("<1> immediately had a feeling something was amiss", [self])
         else:
-            self.move_to(
-                self.location.exits[
-                    random.randint(0, len(self.location.exits)-1)
-                ]
-            )
+            return self.wander()
 
-class Event:
-    def __init__(self, subj, obj, verb, suffix=""):
-        self.subj = subj
-        self.obj = obj
-        self.verb = verb
-        self.suffix = suffix
-    
-    def __str__(self):
-        if self.obj:
-            article = self.obj.article
-            if article:
-                article += ' '
-            return "%s %s %s%s%s." % (
-                self.subj.name, self.verb, article, self.obj.name,
-                self.suffix
-            )
-        return "%s %s%s." % (self.subj.name, self.verb, self.suffix)
+    def wander(self):
+        self.move_to(
+            self.location.exits[
+                random.randint(0, len(self.location.exits)-1)
+            ]
+        )
 
 
-events = []
-def emit_event(e):
-    global events
-    events.append(e)
+class Item(Actor):
+    def takeable(self):
+        return True
 
-alice = Actor('Alice', '', kitchen, emit_event=emit_event)
-bob = Actor('Bob', '',living_room, emit_event=emit_event)
+    def notable(self):
+        return True
+            
 
-falcon = Actor('golden falcon', 'the', dining_room)
-falcon.treasure = True
+
+class Male(Animate):
+    def article(self):
+        return ''
+
+    def posessive(self):
+        return "his"
+
+    def accusative(self):
+        return "him"
+
+    def pronoun(self):
+        return "he"
+
+
+class Female(Animate):
+    def article(self):
+        return ''
+
+    def posessive(self):
+        return "her"
+
+    def accusative(self):
+        return "her"
+
+    def pronoun(self):
+        return "she"
+
+
+class Container(Actor):
+    def container(self):
+        return True
+
+
+class Treasure(Item):
+    def treasure(self):
+        return True
+
+
+class PluralTreasure(Treasure):
+    def article(self):
+        return 'the'
+
+    def posessive(self):
+        return "their"
+
+    def accusative(self):
+        return "them"
+
+    def pronoun(self):
+        return "they"
+
+
+class Horror(Actor):
+    def notable(self):
+        return True
+
+    def horror(self):
+        return True
+
+
+### world ###
+
+kitchen = Location('kitchen')
+living_room = Location('living room')
+dining_room = Location('dining room')
+front_hall = Location('front hall')
+driveway = Location('driveway')
+garage = Location('garage')
+path_by_the_shed = Location('path by the shed')
+shed = Location('shed')
+upstairs_hall = Location('upstairs hall')
+study = Location('study')
+bathroom = Location('bathroom')
+bobs_bedroom = ProperLocation("Bob's bedroom")
+alices_bedroom = ProperLocation("Alice's bedroom")
+
+kitchen.set_exits(dining_room, front_hall)
+living_room.set_exits(dining_room, front_hall)
+dining_room.set_exits(living_room, kitchen)
+front_hall.set_exits(kitchen, living_room, driveway, upstairs_hall)
+driveway.set_exits(front_hall, garage, path_by_the_shed)
+garage.set_exits(driveway)
+path_by_the_shed.set_exits(driveway, shed)
+shed.set_exits(path_by_the_shed)
+upstairs_hall.set_exits(bobs_bedroom, alices_bedroom, front_hall, study, bathroom)
+bobs_bedroom.set_exits(upstairs_hall)
+alices_bedroom.set_exits(upstairs_hall)
+study.set_exits(upstairs_hall)
+bathroom.set_exits(upstairs_hall)
+
+house = (kitchen, living_room, dining_room, front_hall, driveway, garage,
+         upstairs_hall, bobs_bedroom, alices_bedroom, study, bathroom,
+         path_by_the_shed, shed)
+
+falcon = Treasure('golden falcon', dining_room)
+jewels = PluralTreasure('stolen jewels', garage)
+
+cupboards = Container('cupboards', kitchen)
+cabinet = Container('cabinet', dining_room)
+mailbox = Container('mailbox', driveway)
+
+bobs_bed = Container("bed", bobs_bedroom)
+alices_bed = Container("bed", alices_bedroom)
+
+revolver = Item('revolver', pick([bobs_bed, alices_bed]))
+dead_body = Horror('dead body', bathroom)
+
+alice = Female('Alice', kitchen)
+bob = Male('Bob', living_room)
 
 ### main ###
 
-print "The Swallows"
-print "============"
+print "The Swallows of Summer"
+print "======================"
 print
 
 for chapter in range(1, 16):
-    print "CHAPTER %d" % chapter
+    print "Chapter %d." % chapter
     print "-----------"
     print
 
-    for paragraph in range(1, 33):
-        events = []
-        while len(events) < 20:
+    c = EventCollector()
+    alice.collector = c
+    bob.collector = c
+    alice.move_to(pick(house), initial=True)
+    bob.move_to(pick(house), initial=True)
+
+    for paragraph in range(1, 30):
+        while len(c.events) < 20:
             alice.live()
             bob.live()
-        for event in events:
+
+        if paragraph == 1:
+            choice = random.randint(0, 3)
+            if choice == 0:
+                sys.stdout.write("It was raining.  ")
+            if choice == 1:
+                sys.stdout.write("It was snowing.  ")
+            if choice == 2:
+                sys.stdout.write("The sun was shining.  ")
+            if choice == 3:
+                sys.stdout.write("The day was overcast and humid.  ")
+        elif not str(c.events[0]).startswith("'"):
+            choice = random.randint(0, 8)
+            if choice == 0:
+                sys.stdout.write("Later on, ")
+            if choice == 1:
+                sys.stdout.write("Suddenly, ")
+            if choice == 2:
+                sys.stdout.write("After a moment's consideration, ")
+            if choice == 3:
+                sys.stdout.write("Feeling anxious, ")
+
+        for event in c.events:
           sys.stdout.write(str(event) + "  ")
           #sys.stdout.write("\n")
         print
         print
+        c.events = []
+

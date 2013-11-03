@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+#
+# the_swallows.py: a novel generator.
+# Chris Pressey, Cat's Eye Technologies
+#
+
 import random
 import sys
 
@@ -8,6 +13,18 @@ import sys
 # "where have you hidden the jewels?"
 # calling the police
 # trying to hide the body
+# or at least *remembering* that there is a dead body in the bathroom, yeah?
+# an unspeakable thing in the basement!
+# better continuity for conversations (keep it to the same room, in the
+#   same chapter, please)
+# 'diction engine' -- almost exactly like a peephole optimizer -- convert
+#   "Bob went to the shed.  Bob saw Alice." into
+#   "Bob went to the shed, where he saw Alice."
+# Alice shouldn't always move first
+# paragraphs should not always be the same number of events.  variety!
+# path-finder between any two rooms -- not too difficult, even if it
+#   would be nicer in Prolog.
+# DRAMATIC IRONY would be really nice, but hard to pull off.
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -440,8 +457,8 @@ bob = Male('Bob', living_room)
 
 ### main ###
 
-print "The Swallows of Summer"
-print "======================"
+print "Swallows and Sorrows (DRAFT)"
+print "============================"
 print
 
 for chapter in range(1, 16):

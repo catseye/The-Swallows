@@ -12,6 +12,7 @@ import sys
 # "in which bob hides the stolen jewels in the mailbox"
 # "where have you hidden the jewels?"
 # more reacting to the dead body:
+# - needing a drink (add liquor cabinet)
 # - calling the police
 # - trying to dispose of it
 # an unspeakable thing in the basement!
@@ -23,6 +24,14 @@ import sys
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
+# "it was so nice" -- actually *have* memories of locations, and feelings
+# (good/bad, 0 to 10 or something) about memories
+# anxiety memory = the one they're most recently panicked about
+# memory of objects -> memory of hiding them somewhere
+# bullets for the revolver
+# memory of whether the revolver was loaded last time they saw it
+# calling their bluff
+# dear me, someone might actually get shot
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -262,7 +271,9 @@ class Animate(Actor):
                                 break
                         if revolver:
                             # this should be a ThreatTopic, below should
-                            # be a RequestTopic
+                            # be a RequestTopic -- er no, maybe not, but
+                            # it would be nice if there was some way to
+                            # indicate the revolver as part of the Topic
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             # for comic relief!

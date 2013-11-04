@@ -105,6 +105,9 @@ class Editor(object):
         
         character = event.participants[0]
         if character == self.character:  # same character doing stuff
+            if event.phrase.startswith('<1>'):
+                event.phrase = '<he-1>' + event.phrase[3:]
+
             if (self.events[-1].phrase == '<1> made <his-1> way to <2>' and
                 event.phrase == '<1> went to <2>'):
                 self.events[-1].participants[1] = event.participants[1]
@@ -112,15 +115,18 @@ class Editor(object):
                 event.phrase == '<1> went to <2>'):
                 self.events[-1].phrase = '<1> made <his-1> way to <2>'
                 self.events[-1].participants[1] = event.participants[1]
+            elif (self.events[-1].phrase == '<he-1> made <his-1> way to <2>' and
+                event.phrase == '<he-1> went to <2>'):
+                self.events[-1].participants[1] = event.participants[1]
+            elif (self.events[-1].phrase == '<he-1> went to <2>' and
+                event.phrase == '<he-1> went to <2>'):
+                self.events[-1].phrase = '<he-1> made <his-1> way to <2>'
+                self.events[-1].participants[1] = event.participants[1]
             else:
                 self.events.append(event)
         else:  # new character doing stuff
             self.character = character
             self.events.append(event)
-
-#            if event.phrase.startswith('<1>'):
-#                event.phrase = '<he-1>' + event.phrase[3:]
-#                self.events.append(event)
 
 
 ### OBJECTS ###

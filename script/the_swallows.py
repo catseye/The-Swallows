@@ -447,12 +447,16 @@ class Animate(Actor):
             # but otoh this sort of thing does not scale:
             other.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
-            memory = self.memory.get('dead body')
-            if memory:
+            self_memory = self.memory.get('dead body')
+            # in general, characters should not be able to read each other's
+            # minds.  however, it's convenient here.  besides, their face would
+            # be pretty easy to read in this circumstance.
+            other_memory = other.memory.get('dead body')
+            if self_memory and not other_memory:
                 self.question(other,
                    "'Did you know there's <indef-3> in <4>?' asked <1> quickly",
-                   [self, other, memory.subject, memory.location],
-                   subject=memory.subject)
+                   [self, other, self_memory.subject, self_memory.location],
+                   subject=self_memory.subject)
                 return
             # this needs to be not *all* the time
             for x in other.contents:

@@ -33,6 +33,10 @@ import sys
 # calling their bluff
 # dear me, someone might actually get shot
 # "Bob went to Bob's bedroom"
+# there should be "Bob was in the kitchen" at the start of a paragraph
+#   from Bob's POV *if* the last place the *reader* saw Bob was somewhere
+#   else (fourth wall breaking!  does the *reader* need Memory objects??)
+# and as some kind of debugging aid, option to dump each paragraph from *both* POVs.
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -201,7 +205,7 @@ class Animate(Actor):
     def __init__(self, name, location, collector=None):
         Actor.__init__(self, name, location, collector=None)
         self.topic = None
-        # hash of actor's name to a Memory object
+        # hash of subject's name to a Memory object
         self.memory = {}
 
     def animate(self):
@@ -215,8 +219,8 @@ class Animate(Actor):
             participants = [self, other]
         other.topic = topic
         self.emit(phrase, participants)
-        # hack!
-        other.emit(other.name + " observed: " + phrase, participants)
+        # kind of a hack!
+        other.emit(phrase, participants)
 
     def greet(self, other, phrase, participants=None):
         self.address(other, GreetTopic(self), phrase, participants)
@@ -232,6 +236,12 @@ class Animate(Actor):
 
     def move_to(self, location, initial=False):
         if self.location:
+            for x in self.location.contents:
+                # otherwise we get "Bob saw Bob leave the room", eh?
+                if x is self:
+                    continue
+                if x.animate():
+                    x.emit("<1> saw <2> leave the room", [x, self])
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
@@ -260,6 +270,7 @@ class Animate(Actor):
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
+                other.emit("<1> saw <2> walk into the room", [other, self])
                 self.memory[x.name] = Memory(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:

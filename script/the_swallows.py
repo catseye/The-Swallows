@@ -11,20 +11,18 @@ import sys
 # TODO
 # "in which bob hides the stolen jewels in the mailbox"
 # "where have you hidden the jewels?"
-# calling the police
-# trying to hide the body
-# or at least *remembering* that there is a dead body in the bathroom, yeah?
+# more reacting to the dead body:
+# - calling the police
+# - trying to dispose of it
 # an unspeakable thing in the basement!
 # 'diction engine' -- almost exactly like a peephole optimizer -- convert
 #   "Bob went to the shed.  Bob saw Alice." into
 #   "Bob went to the shed, where he saw Alice."
-# don't always "went to".  "walked", "ran", ... make it location-sensitive.
 # Alice shouldn't always move first
 # paragraphs should not always be the same number of events.  variety!
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
-# use indefinite articles appropriately
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -45,6 +43,7 @@ class Event(object):
         i = 0
         for participant in self.participants:
             phrase = phrase.replace('<%d>' % (i + 1), str(participant))
+            phrase = phrase.replace('<indef-%d>' % (i + 1), participant.indefinite())
             phrase = phrase.replace('<his-%d>' % (i + 1), participant.posessive())
             phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
             phrase = phrase.replace('<he-%d>' % (i + 1), participant.pronoun())
@@ -125,6 +124,12 @@ class Actor(object):
         article = self.article()
         if not article:
             return self.name
+        return '%s %s' % (article, self.name)
+
+    def indefinite(self):
+        article = 'a'
+        if self.name.startswith(('a', 'e', 'i', 'o', 'u')):
+            article = 'an'
         return '%s %s' % (article, self.name)
 
 
@@ -238,7 +243,7 @@ class Animate(Actor):
                     self.memory[x.name] = Memory(x, self.location)
                 else:
                     verb = pick(['screamed', 'yelped', 'went pale'])
-                    self.emit("<1> %s at the sight of <2>" % verb, [self, x], excl=True)
+                    self.emit("<1> %s at the sight of <indef-2>" % verb, [self, x], excl=True)
                     self.memory[x.name] = Memory(x, self.location)
             elif x.animate():
                 other = x
@@ -248,7 +253,7 @@ class Animate(Actor):
                 for y in other.contents:
                     if y.treasure():
                         self.emit(
-                            "<1> noticed <2> was carrying <3>",
+                            "<1> noticed <2> was carrying <indef-3>",
                             [self, other, y])
                         revolver = None
                         for z in self.contents:
@@ -348,14 +353,14 @@ class Animate(Actor):
             memory = self.memory.get('dead body')
             if memory:
                 self.question(other,
-                   "'Did you know there's <3> in <4>?' asked <1> quickly",
+                   "'Did you know there's <indef-3> in <4>?' asked <1> quickly",
                    [self, other, memory.subject, memory.location],
                    subject=memory.subject)
                 return
             # this needs to be not *all* the time
             for x in other.contents:
                 if x.notable():
-                    self.speak_to(other, "'I see you are carrying <3>,' said <1>", [self, other, x])
+                    self.speak_to(other, "'I see you are carrying <indef-3>,' said <1>", [self, other, x])
                     return
             choice = random.randint(0, 3)
             if choice == 0:
@@ -444,6 +449,7 @@ class Treasure(Item):
         return True
 
 
+# TODO Plural should really be a mixin.
 class PluralTreasure(Treasure):
     def article(self):
         return 'the'
@@ -456,6 +462,10 @@ class PluralTreasure(Treasure):
 
     def pronoun(self):
         return "they"
+
+    def indefinite(self):
+        article = 'some'
+        return '%s %s' % (article, self.name)
 
 
 class Horror(Actor):

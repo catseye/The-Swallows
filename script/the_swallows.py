@@ -16,10 +16,6 @@ import sys
 # - calling the police
 # - trying to dispose of it
 # an unspeakable thing in the basement!
-# 'diction engine' -- almost exactly like a peephole optimizer -- convert
-#   "Bob went to the shed.  Bob saw Alice." into
-#   "Bob went to the shed, where he saw Alice."
-# Alice shouldn't always move first
 # paragraphs should not always be the same number of events.  variety!
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
@@ -66,7 +62,7 @@ class Event(object):
             phrase = phrase + '!'
         else:
             phrase = phrase + '.'
-        return phrase
+        return phrase[0].upper() + phrase[1:]
 
 
 class EventCollector(object):
@@ -81,7 +77,51 @@ class Oblivion(EventCollector):
     def collect(self, event):
         pass
 
+
 oblivion = Oblivion()
+
+
+# 'diction engine' -- almost exactly like a peephole optimizer -- convert
+#   "Bob went to the shed.  Bob saw Alice." into
+#   "Bob went to the shed, where he saw Alice."
+class Editor(object):
+    """The Editor is remarkably similar to the _peephole optimizer_ in
+    compiler construction.  Instead of replacing sequences of instructions
+    with more efficient but semantically equivalent sequences of
+    instructions, it replaces sequences of sentences with more readable
+    but semantically equivalent sequences of sentences.
+
+    """
+    MEMORY = 1
+
+    def __init__(self):
+        self.character = None
+        self.events = []
+
+    def read(self, event):
+        if len(self.events) < Editor.MEMORY:
+            self.events.append(event)
+            return
+        
+        character = event.participants[0]
+        if character == self.character:  # same character doing stuff
+            if (self.events[-1].phrase == '<1> made <his-1> way to <2>' and
+                event.phrase == '<1> went to <2>'):
+                self.events[-1].participants[1] = event.participants[1]
+            elif (self.events[-1].phrase == '<1> went to <2>' and
+                event.phrase == '<1> went to <2>'):
+                self.events[-1].phrase = '<1> made <his-1> way to <2>'
+                self.events[-1].participants[1] = event.participants[1]
+            else:
+                self.events.append(event)
+        else:  # new character doing stuff
+            self.character = character
+            self.events.append(event)
+
+#            if event.phrase.startswith('<1>'):
+#                event.phrase = '<he-1>' + event.phrase[3:]
+#                self.events.append(event)
+
 
 ### OBJECTS ###
 
@@ -275,8 +315,8 @@ class Animate(Actor):
             if x.horror():
                 memory = self.memory.get(x.name, None)
                 if memory:
-                    amount = pick(['shudder', 'wave', 'uprising'])
-                    emotion = pick(['fear', 'disgust', 'nausea', 'uneasiness'])
+                    amount = pick(['shudder', 'wave'])
+                    emotion = pick(['fear', 'disgust', 'sickness'])
                     self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
                     self.memory[x.name] = Memory(x, self.location)
                 else:
@@ -580,7 +620,7 @@ print "Swallows and Sorrows (DRAFT)"
 print "============================"
 print
 
-for chapter in range(1, 16):
+for chapter in range(1, 17):
     print "Chapter %d." % chapter
     print "-----------"
     print
@@ -593,7 +633,7 @@ for chapter in range(1, 16):
     alice.location = None
     bob.location = None
 
-    for paragraph in range(1, 30):
+    for paragraph in range(1, 26):
         alice.collector = alice_collector
         bob.collector = bob_collector
         
@@ -646,8 +686,12 @@ for chapter in range(1, 16):
             print
             print "- - - - -"
             print
-        else:
+
+        if not debug:
+            editor = Editor()
             for event in pov_actor.collector.events:
+                editor.read(event)
+            for event in editor.events:
                 sys.stdout.write(str(event) + "  ")
                 #sys.stdout.write("\n")
             print

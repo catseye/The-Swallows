@@ -27,10 +27,7 @@ import sys
 # calling their bluff
 # dear me, someone might actually get shot
 # "Bob went to Bob's bedroom"
-# there should be "Bob was in the kitchen" at the start of a paragraph
-#   from Bob's POV *if* the last place the *reader* saw Bob was somewhere
-#   else (fourth wall breaking!  does the *reader* need Memory objects??)
-# Bob should see Alice leaving the room before Bob picks up the falcon
+# a better solution for "Bob was in the kitchen" at the start of a paragraph
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -365,8 +362,8 @@ class Animate(Actor):
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
                             # for comic relief!
-                            if random.randint(0, 4) == 0:
-                                y = pick(ALL_ITEMS)
+                            #if random.randint(0, 4) == 0:
+                            #    y = pick(ALL_ITEMS)
                             self.address(other,
                                 ThreatGiveMeTopic(self, subject=y),
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -377,14 +374,17 @@ class Animate(Actor):
                 if revolver:
                     for key in other.memory:
                         memory = other.memory[key]
+                        self_memory = self.memory.get(key)
+                        if self_memory and self_memory.i_hid_it_there:
+                            continue
                         if memory.i_hid_it_there and memory.subject.name != 'revolver':
                             y = memory.subject
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
                             # for comic relief!
-                            if random.randint(0, 4) == 0:
-                                y = pick(ALL_ITEMS)
+                            #if random.randint(0, 4) == 0:
+                            #    y = pick(ALL_ITEMS)
                             self.address(other,
                                 ThreatTellMeTopic(self, subject=y),
                                 "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -433,25 +433,37 @@ class Animate(Actor):
                 y.move_to(x)
                 self.memory[y.name] = Memory(y, x, i_hid_it_there=True)
                 return self.wander()
-            if x.container() and not people_about and random.randint(0, 2) == 0:
-                # well, didn't I already hide something there?
-                # todo: this is actually far too effective.  the story often
-                # gets to a point where, for each item, one character has
-                # found and re-hidden it in the same place the other character
-                # has hidden it, and they do not check anywhere.
-                already_used = False
+            if x.container() and not people_about:
+                # did I hide something here previously?
+                memory = None
                 for key in self.memory:
                     if self.memory[key].location == x and self.memory[key].i_hid_it_there:
-                        already_used = True
+                        memory = self.memory[key]
                         break
-                if already_used:
-                    continue
-                self.emit("<1> examined <2> carefully", [self, x])
-                for y in x.contents:
-                    if y.notable() and y.takeable():
-                        self.emit("<1> found <2> hidden there, and took <him-2>", [self, y])
-                        y.move_to(self)
-                        self.memory[y.name] = Memory(y, self)
+                if memory and memory.subject.name == 'revolver':
+                    y = memory.subject
+                    self.emit("<1> retrieved <3> from <2>",
+                              [self, x, y])
+                    if y.location != x:
+                        self.emit("But it was missing", [self], excl=True)
+                        # forget ALLLLLLL about it, then.  so realistic!
+                        del self.memory[y.name]
+                    else:
+                        memory.subject.move_to(self)
+                        self.memory[y.name] = Memory(memory.subject, self)
+                if memory:
+                    self.emit("<1> checked that <3> was still in <2>",
+                              [self, x, memory.subject])
+                    if memory.subject.location != x:
+                        self.emit("But it was missing", [self], excl=True)
+                        del self.memory[memory.subject.name]
+                elif random.randint(0, 2) == 0:
+                    self.emit("<1> searched <2>", [self, x])
+                    for y in x.contents:
+                        if y.notable() and y.takeable():
+                            self.emit("<1> found <2> hidden there, and took <him-2>", [self, y])
+                            y.move_to(self)
+                            self.memory[y.name] = Memory(y, self)
         if random.randint(0, 8) == 0:
             which = random.randint(0, 5)
             if which == 0:
@@ -721,8 +733,9 @@ for chapter in range(1, 17):
             if actor.location is None:
                 actor.place_in(pick(house))
             else:
-                self = actor
-                self.emit("<1> was in <2>", [self, self.location])
+                # this is hacky & won't work for >2 characters:
+                if not (alice.location == bob.location):
+                    actor.emit("<1> was in <2>", [actor, actor.location])
 
         while len(pov_actor.collector.events) < 20:
             alice.live()

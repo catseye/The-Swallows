@@ -28,6 +28,9 @@ import sys
 def pick(l):
     return l[random.randint(0, len(l)-1)]
 
+# this will get filled in later
+ALL_ITEMS = []
+
 ### EVENTS ###
 
 class Event(object):
@@ -215,7 +218,8 @@ class Animate(Actor):
              [self, self.location], excl=True)
         for x in self.location.contents:
             if x != self and x.horror():
-                self.emit("<1> shouted at the sight of <2>", [self, x], excl=True)
+                verb = pick(['screamed', 'yelped', 'went pale'])
+                self.emit("<1> %s at the sight of <2>" % verb, [self, x], excl=True)
                 return
             if x != self and x.animate():
                 other = x
@@ -226,15 +230,24 @@ class Animate(Actor):
                         self.emit(
                             "<1> noticed <2> was carrying <3>",
                             [self, other, y])
+                        revolver = None
                         for z in self.contents:
                             if z.name == 'revolver':
-                                self.emit("<1> pointed <3> at <2>",
-                                    [self, other, z])
-                                self.threaten(other,
-                                    "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
-                                    [self, other, y],
-                                    subject=y)
-                                return
+                                revolver = z
+                                break
+                        if revolver:
+                            # this should be a ThreatTopic, below should
+                            # be a RequestTopic
+                            self.emit("<1> pointed <3> at <2>",
+                                [self, other, revolver])
+                            # for comic relief!
+                            if random.randint(0, 4) == 0:
+                                y = pick(ALL_ITEMS)
+                            self.threaten(other,
+                                "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
+                                [self, other, y],
+                                subject=y)
+                            return
             elif x != self and x.notable():
                 self.emit("<1> saw <2>", [self, x])
 
@@ -247,7 +260,7 @@ class Animate(Actor):
                 x.move_to(self)
                 return
         people_about = False
-        
+
         # what the character is aware they're carrying; occasionally = gun
         treasure = None
         for y in self.contents:
@@ -301,7 +314,7 @@ class Animate(Actor):
             if not found_object:
                 self.speak_to(other,
                     "'But I don't have <3>!' protested <1>",
-                    [self, other, found_object])
+                    [self, other, topic.subject])
             else:
                 self.speak_to(other,
                     "'Please don't shoot!', <1> cried, and handed over <3>",
@@ -319,12 +332,14 @@ class Animate(Actor):
                 self.question(other, "'Lovely weather we're having, isn't it?' asked <1>")
             if choice == 1:
                 self.speak_to(other, "'I was wondering where you were.' said <1>")
-            return
         elif isinstance(topic, QuestionTopic):
-            self.speak_to(other, "'Perhaps, <2>,' replied <1>")
-            return
+            if topic.subject is not None:
+                self.speak_to(other, "'I know nothing about <3>, <2>,' explained <1>",
+                    [self, other, topic.subject])
+            else:
+                self.speak_to(other, "'Perhaps, <2>,' replied <1>")
         elif isinstance(topic, SpeechTopic):
-            choice = random.randint(0, 4)
+            choice = random.randint(0, 5)
             if choice == 0:
                 self.emit("<1> nodded", [self])
             if choice == 1:
@@ -335,7 +350,10 @@ class Animate(Actor):
                 self.speak_to(other, "'Yes, it's a shame really,' stated <1>")
             if choice == 4:
                 self.speak_to(other, "'Oh, I know, I know,' said <1>")
-            return
+            if choice == 5:
+                item = pick(ALL_ITEMS)
+                self.question(other, "'But what about <3>, <2>?' posed <1>",
+                    [self, other, item], subject=item)
 
     def wander(self):
         self.move_to(
@@ -463,6 +481,8 @@ dead_body = Horror('dead body', bathroom)
 
 alice = Female('Alice', kitchen)
 bob = Male('Bob', living_room)
+
+ALL_ITEMS.extend([falcon, jewels, revolver])
 
 ### main ###
 

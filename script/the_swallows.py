@@ -147,13 +147,35 @@ class ProperLocation(Location):
         return "it"
 
 
+# a "topic" is just what a character has recently had addressed to
+# them.  It could be anything, not just words, by another character
+# (for example, a gesture.)
+
+class Topic(object):
+    def __init__(self, originator, subject=None):
+        self.originator = originator
+        self.subject = subject
+
+
+class GreetTopic(Topic):
+    pass
+
+
+class SpeechTopic(Topic):
+    pass
+
+
+class QuestionTopic(Topic):
+    pass
+
+
+class ThreatTopic(Topic):
+    pass
+
+
 class Animate(Actor):
     def __init__(self, name, location, collector=None):
         Actor.__init__(self, name, location, collector=None)
-        self.greeted_by = None
-        self.questioned_by = None
-        self.spoken_to_by = None
-        self.threatened_by = None
         self.topic = None
 
     def animate(self):
@@ -162,31 +184,23 @@ class Animate(Actor):
     def notable(self):
         return True
 
-    def speak_to(self, other, phrase, participants=None):
+    def address(self, other, topic, phrase, participants=None):
         if participants is None:
             participants = [self, other]
-        other.spoken_to_by = self
+        other.topic = topic
         self.emit(phrase, participants)
 
     def greet(self, other, phrase, participants=None):
-        if participants is None:
-            participants = [self, other]
-        other.greeted_by = self
-        self.emit(phrase, participants)
+        self.address(other, GreetTopic(self), phrase, participants)
 
-    def question(self, other, phrase, participants=None, topic=None):
-        if participants is None:
-            participants = [self, other]
-        other.questioned_by = self
-        other.topic = topic
-        self.emit(phrase, participants)
+    def speak_to(self, other, phrase, participants=None, subject=None):
+        self.address(other, SpeechTopic(self, subject=subject), phrase, participants)
 
-    def threaten(self, other, phrase, participants=None, topic=None):
-        if participants is None:
-            participants = [self, other]
-        other.threatened_by = self
-        other.topic = topic
-        self.emit(phrase, participants)
+    def question(self, other, phrase, participants=None, subject=None):
+        self.address(other, QuestionTopic(self, subject=subject), phrase, participants)
+
+    def threaten(self, other, phrase, participants=None, subject=None):
+        self.address(other, ThreatTopic(self, subject=subject), phrase, participants)
 
     def move_to(self, location, initial=False):
         if self.location:
@@ -225,61 +239,8 @@ class Animate(Actor):
                 self.emit("<1> saw <2>", [self, x])
 
     def live(self):
-        if self.threatened_by:
-            other = self.threatened_by
-            topic = self.topic
-            self.topic = None
-            self.threatened_by = None
-            self.greeted_by = None  # sorta cancels that out
-            treasure = None
-            for x in self.contents:
-                if x.treasure():
-                    treasure = x
-                    break
-            if treasure:
-                self.speak_to(other,
-                    "'Please don't shoot!', <1> cried, and handed over <3>",
-                    [self, other, treasure])
-                treasure.move_to(other)
-
-        if self.greeted_by:
-            other = self.greeted_by
-            self.greeted_by = None
-            # because making this a speak_to leads to too much silliness
-            self.emit("'Hello, <2>,' replied <1>", [self, other])
-            for x in other.contents:
-                if x.notable():
-                    self.speak_to(other, "'I see you are carrying <3>,' said <1>", [self, other, x])
-                    return
-            choice = random.randint(0, 3)
-            if choice == 0:
-                self.question(other, "'Lovely weather we're having, isn't it?' asked <1>")
-            if choice == 1:
-                self.speak_to(other, "'I was wondering where you were.' said <1>")
-            
-            return
-        if self.questioned_by:
-            other = self.questioned_by
-            topic = self.topic
-            self.topic = None
-            self.questioned_by = None
-            self.speak_to(other, "'Perhaps, <2>,' replied <1>")
-            return
-        if self.spoken_to_by:
-            other = self.spoken_to_by
-            self.spoken_to_by = None
-            choice = random.randint(0, 4)
-            if choice == 0:
-                self.emit("<1> nodded", [self])
-            if choice == 1:
-                self.emit("<1> remained silent", [self])
-            if choice == 2:
-                self.question(other, "'Do you really think so?' asked <1>")
-            if choice == 3:
-                self.speak_to(other, "'Yes, it's a shame really,' stated <1>")
-            if choice == 4:
-                self.speak_to(other, "'Oh, I know, I know,' said <1>")
-            return
+        if self.topic is not None:
+            return self.converse(self.topic)
         for x in self.location.contents:
             if x.notable() and x.takeable():
                 self.emit("<1> picked up <2>", [self, x])
@@ -327,6 +288,51 @@ class Animate(Actor):
                 self.emit("<1> immediately had a feeling something was amiss", [self])
         else:
             return self.wander()
+
+    def converse(self, topic):
+        self.topic = None
+        other = topic.originator
+        if isinstance(topic, ThreatTopic):
+            # treasure should come from topic, not this
+            treasure = None
+            for x in self.contents:
+                if x.treasure():
+                    treasure = x
+                    break
+            if treasure:
+                self.speak_to(other,
+                    "'Please don't shoot!', <1> cried, and handed over <3>",
+                    [self, other, treasure])
+                treasure.move_to(other)
+        elif isinstance(topic, GreetTopic):
+            # emit, because making this a speak_to leads to too much silliness
+            self.emit("'Hello, <2>,' replied <1>", [self, other])
+            for x in other.contents:
+                if x.notable():
+                    self.speak_to(other, "'I see you are carrying <3>,' said <1>", [self, other, x])
+                    return
+            choice = random.randint(0, 3)
+            if choice == 0:
+                self.question(other, "'Lovely weather we're having, isn't it?' asked <1>")
+            if choice == 1:
+                self.speak_to(other, "'I was wondering where you were.' said <1>")
+            return
+        elif isinstance(topic, QuestionTopic):
+            self.speak_to(other, "'Perhaps, <2>,' replied <1>")
+            return
+        elif isinstance(topic, SpeechTopic):
+            choice = random.randint(0, 4)
+            if choice == 0:
+                self.emit("<1> nodded", [self])
+            if choice == 1:
+                self.emit("<1> remained silent", [self])
+            if choice == 2:
+                self.question(other, "'Do you really think so?' asked <1>")
+            if choice == 3:
+                self.speak_to(other, "'Yes, it's a shame really,' stated <1>")
+            if choice == 4:
+                self.speak_to(other, "'Oh, I know, I know,' said <1>")
+            return
 
     def wander(self):
         self.move_to(

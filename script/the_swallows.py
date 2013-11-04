@@ -84,6 +84,7 @@ oblivion = Oblivion()
 # 'diction engine' -- almost exactly like a peephole optimizer -- convert
 #   "Bob went to the shed.  Bob saw Alice." into
 #   "Bob went to the shed, where he saw Alice."
+# btw, we currently get a new editor for every paragraph
 class Editor(object):
     """The Editor is remarkably similar to the _peephole optimizer_ in
     compiler construction.  Instead of replacing sequences of instructions
@@ -96,6 +97,7 @@ class Editor(object):
 
     def __init__(self):
         self.character = None
+        self.character_location = {}
         self.events = []
 
     def read(self, event):
@@ -104,7 +106,13 @@ class Editor(object):
             return
         
         character = event.participants[0]
-        if character == self.character:  # same character doing stuff
+        # update our idea of their location
+        self.character_location[character.name] = character.location
+        # todo: check our idea of their location vs where they are,
+        # but that won't matter until an editor looks at more than one
+        # paragraph anyway
+
+        if character == self.character:  # same character doing stuff        
             if event.phrase.startswith('<1>'):
                 event.phrase = '<he-1>' + event.phrase[3:]
 

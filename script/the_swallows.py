@@ -15,11 +15,10 @@ import sys
 # trying to hide the body
 # or at least *remembering* that there is a dead body in the bathroom, yeah?
 # an unspeakable thing in the basement!
-# better continuity for conversations (keep it to the same room, in the
-#   same chapter, please)
 # 'diction engine' -- almost exactly like a peephole optimizer -- convert
 #   "Bob went to the shed.  Bob saw Alice." into
 #   "Bob went to the shed, where he saw Alice."
+# don't always "went to".  "walked", "ran", ... make it location-sensitive.
 # Alice shouldn't always move first
 # paragraphs should not always be the same number of events.  variety!
 # path-finder between any two rooms -- not too difficult, even if it
@@ -233,7 +232,8 @@ class Animate(Actor):
                                     [self, other, z])
                                 self.threaten(other,
                                     "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
-                                    [self, other, y])
+                                    [self, other, y],
+                                    subject=y)
                                 return
             elif x != self and x.notable():
                 self.emit("<1> saw <2>", [self, x])
@@ -293,17 +293,20 @@ class Animate(Actor):
         self.topic = None
         other = topic.originator
         if isinstance(topic, ThreatTopic):
-            # treasure should come from topic, not this
-            treasure = None
+            found_object = None
             for x in self.contents:
-                if x.treasure():
-                    treasure = x
+                if x is topic.subject:
+                    found_object = x
                     break
-            if treasure:
+            if not found_object:
+                self.speak_to(other,
+                    "'But I don't have <3>!' protested <1>",
+                    [self, other, found_object])
+            else:
                 self.speak_to(other,
                     "'Please don't shoot!', <1> cried, and handed over <3>",
-                    [self, other, treasure])
-                treasure.move_to(other)
+                    [self, other, found_object])
+                found_object.move_to(other)
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
@@ -477,6 +480,9 @@ for chapter in range(1, 16):
     bob.collector = c
     alice.move_to(pick(house), initial=True)
     bob.move_to(pick(house), initial=True)
+    # don't continue a conversation from the previous chapter, please
+    alice.topic = None
+    bob.topic = None
 
     for paragraph in range(1, 30):
         while len(c.events) < 20:

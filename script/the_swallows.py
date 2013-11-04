@@ -19,7 +19,6 @@ import sys
 # bullets for the revolver
 
 # Mechanics:
-# they never retrieve the revolver after hiding it.  debug this.
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
@@ -457,7 +456,7 @@ class Animate(Actor):
                     else:
                         memory.subject.move_to(self)
                         self.memory[y.name] = Memory(memory.subject, self)
-                if memory:
+                elif memory:
                     y = memory.subject
                     self.emit("<1> checked that <3> <was-3> still in <2>",
                               [self, x, memory.subject])
@@ -716,6 +715,14 @@ bob = Male('Bob', None)
 
 ALL_ITEMS.extend([falcon, jewels, revolver])
 
+### util ###
+
+def dump_memory(actor):
+    for key in actor.memory:
+        print ".oO{ %s is in %s }" % (actor.memory[key].subject, actor.memory[key].location)
+        if actor.memory[key].i_hid_it_there:
+            print ".oO{ I hid it there }"
+
 ### main ###
 
 friffery = False
@@ -786,9 +793,13 @@ for chapter in range(1, 17):
             for event in alice_collector.events:
                 print str(event)
             print
+            dump_memory(alice)
+            print
             print "BOB'S POV:"
             for event in bob_collector.events:
                 print str(event)
+            print
+            dump_memory(bob)
             print
             print "- - - - -"
             print

@@ -12,7 +12,7 @@ import sys
 
 # World:
 # more reacting to the dead body:
-# - needing a drink (add liquor cabinet)
+# - needing a drink
 # - calling the police
 # - trying to dispose of it
 # an unspeakable thing in the basement!
@@ -339,6 +339,7 @@ class Animate(Actor):
                 revolver = z
                 break
 
+        # okay, look around you.
         for x in self.location.contents:
             if x == self:
                 continue
@@ -415,15 +416,15 @@ class Animate(Actor):
 
         # otherwise, fixate on some valuable object (possibly the revolver)
         # that you are carrying:
-        treasure = None
+        fixated_on = None
         for y in self.contents:
             if y.treasure():
-                treasure = y
+                fixated_on = y
                 break
-        if not treasure and random.randint(0, 20) == 0:
+        if not fixated_on and random.randint(0, 20) == 0:
             for y in self.contents:
                 if y.name == 'revolver':
-                    treasure = y
+                    fixated_on = y
                     break
 
         # check if you are alone
@@ -431,59 +432,82 @@ class Animate(Actor):
             if x.animate() and x is not self:
                 people_about = True
 
-        # check for some place to hide the thing you're fixating on
-        for x in self.location.contents:
-            if x.container() and not people_about and treasure:
-                self.emit("<1> hid <2> in <3>", [self, y, x])
-                y.move_to(x)
-                self.memory[y.name] = Memory(y, x, i_hid_it_there=True)
-                return self.wander()
-            if x.container() and not people_about:
-                # did I hide something here previously?
-                memory = None
-                for key in self.memory:
-                    if self.memory[key].location == x and self.memory[key].i_hid_it_there:
-                        memory = self.memory[key]
-                        break
-                if memory and memory.subject.name == 'revolver':
-                    y = memory.subject
-                    self.emit("<1> retrieved <3> <he-1> had hidden in <2>",
-                              [self, x, y])
-                    if y.location != x:
-                        self.emit("But <he-2> <was-2> missing", [self, y], excl=True)
-                        # forget ALLLLLLL about it, then.  so realistic!
-                        del self.memory[y.name]
-                    else:
-                        memory.subject.move_to(self)
-                        self.memory[y.name] = Memory(memory.subject, self)
-                elif memory:
-                    y = memory.subject
-                    self.emit("<1> checked that <3> <was-3> still in <2>",
-                              [self, x, memory.subject])
-                    if memory.subject.location != x:
-                        self.emit("But <he-2> <was-2> missing", [self, y], excl=True)
-                        del self.memory[memory.subject.name]
-                elif random.randint(0, 2) == 0:
-                    self.emit("<1> searched <2>", [self, x])
-                    for y in x.contents:
-                        if y.notable() and y.takeable():
-                            self.emit("<1> found <2> hidden there, and took <him-2>", [self, y])
-                            y.move_to(self)
-                            self.memory[y.name] = Memory(y, self)
-        if random.randint(0, 8) == 0:
-            which = random.randint(0, 5)
-            if which == 0:
-                self.emit("<1> yawned", [self])
-            if which == 1:
-                self.emit("<1> gazed thoughtfully into the distance", [self])
-            if which == 2:
-                self.emit("<1> thought <he-1> heard something", [self])
-            if which == 3:
-                self.emit("<1> scratched <his-1> head", [self])
-            if which == 4:
-                self.emit("<1> immediately had a feeling something was amiss", [self])
+        choice = random.randint(0, 25)
+        if choice < 10 and not people_about:
+            return self.hide_and_seek(fixated_on)
+        if choice < 20:
+            return self.wander()
+        if choice == 20:
+            self.emit("<1> yawned", [self])
+        if choice == 21:
+            self.emit("<1> gazed thoughtfully into the distance", [self])
+        if choice == 22:
+            self.emit("<1> thought <he-1> heard something", [self])
+        if choice == 23:
+            self.emit("<1> scratched <his-1> head", [self])
+        if choice == 24:
+            self.emit("<1> immediately had a feeling something was amiss", [self])
         else:
             return self.wander()
+
+    def hide_and_seek(self, fixated_on):
+        # check for some place to hide the thing you're fixating on
+        containers = []
+        for x in self.location.contents:
+            if x.container():
+                # did I hide something here previously?
+                memories = []
+                for key in self.memory:
+                    if self.memory[key].location == x:
+                        memories.append(self.memory[key])
+                
+                containers.append((x, memories))
+        if not containers:
+            return self.wander()
+        # ok!  we now have a list of containers, each of which has zero or more memories of things being in it.
+        if fixated_on:
+            (container, memories) = pick(containers)
+            self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
+            fixated_on.move_to(container)
+            self.memory[fixated_on.name] = Memory(fixated_on, container, i_hid_it_there=True)
+            return self.wander()
+        else:
+            # we're looking for treasure!
+            (container, memories) = pick(containers)
+            if memories:
+                memory = pick(memories)
+                picking_up = random.randint(0, 5) == 0
+                if memory.subject.name == 'revolver':
+                    picking_up = True
+                if picking_up:
+                    if memory.i_hid_it_there:
+                        self.emit("<1> retrieved <3> <he-1> had hidden in <2>",
+                                  [self, container, memory.subject])
+                    else:
+                        self.emit("<1> retrieved <3> from <2>",
+                                  [self, container, memory.subject])
+                    # but!
+                    if memory.subject.location != container:
+                        self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
+                        # forget ALLLLLLL about it, then.  so realistic!
+                        del self.memory[memory.subject.name]
+                    else:
+                        memory.subject.move_to(self)
+                        self.memory[memory.subject.name] = Memory(memory.subject, self)
+                else:
+                    self.emit("<1> checked that <3> <was-3> still in <2>",
+                              [self, container, memory.subject])
+                    # but!
+                    if memory.subject.location != container:
+                        self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
+                        del self.memory[memory.subject.name]
+            else:  # no memories of this
+                self.emit("<1> searched <2>", [self, container])
+                for thing in container.contents:
+                    if thing.notable() and thing.takeable():
+                        self.emit("<1> found <2> hidden there, and took <him-2>", [self, thing])
+                        thing.move_to(self)
+                        self.memory[thing.name] = Memory(thing, self)
 
     def converse(self, topic):
         self.topic = None
@@ -701,7 +725,8 @@ falcon = Treasure('golden falcon', dining_room)
 jewels = PluralTreasure('stolen jewels', garage)
 
 cupboards = Container('cupboards', kitchen)
-cabinet = Container('cabinet', dining_room)
+liquor_cabinet = Container('liquor cabinet', dining_room)
+brandy = Item('bottle of brandy', liquor_cabinet)
 mailbox = Container('mailbox', driveway)
 
 bobs_bed = Container("bed", bobs_bedroom)

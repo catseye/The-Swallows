@@ -9,25 +9,33 @@ import random
 import sys
 
 # TODO
-# "in which bob hides the stolen jewels in the mailbox"
+
+# World:
 # more reacting to the dead body:
 # - needing a drink (add liquor cabinet)
 # - calling the police
 # - trying to dispose of it
 # an unspeakable thing in the basement!
-# paragraphs should not always be the same number of events.  variety!
+# bullets for the revolver
+
+# Mechanics:
+# they never retrieve the revolver after hiding it.  debug this.
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
 # "it was so nice" -- actually *have* memories of locations, and feelings
 #   (good/bad, 0 to 10 or something) about memories
 # anxiety memory = the one they're most recently panicked about
-# bullets for the revolver
 # memory of whether the revolver was loaded last time they saw it
 # calling their bluff
 # dear me, someone might actually get shot
+
+# Diction:
+# "Chapter 3.  _In which Bob hides the stolen jewels in the mailbox, etc_"
 # "Bob went to Bob's bedroom"
 # a better solution for "Bob was in the kitchen" at the start of a paragraph
+# paragraphs should not always be the same number of events.  variety!
+# use indef art when they have no memory of an item that they see
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -52,6 +60,7 @@ class Event(object):
             phrase = phrase.replace('<his-%d>' % (i + 1), participant.posessive())
             phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
             phrase = phrase.replace('<he-%d>' % (i + 1), participant.pronoun())
+            phrase = phrase.replace('<was-%d>' % (i + 1), participant.was())
             i = i + 1
         if self.excl:
             phrase = phrase + '!'
@@ -175,6 +184,9 @@ class Actor(object):
     def pronoun(self):
         return "it"
 
+    def was(self):
+        return "was"
+
     def emit(self, *args, **kwargs):
         if self.collector:
             self.collector.collect(Event(*args, **kwargs))
@@ -294,7 +306,7 @@ class Animate(Actor):
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
-        self.emit("<1> was in <2>", [self, self.location])
+        self.emit("<1> <was-1> in <2>", [self, self.location])
         for x in self.location.contents:
             if x == self:
                 continue
@@ -351,7 +363,7 @@ class Animate(Actor):
                 for y in other.contents:
                     if y.treasure():
                         self.emit(
-                            "<1> noticed <2> was carrying <indef-3>",
+                            "<1> noticed <2> <was-2> carrying <indef-3>",
                             [self, other, y])
                         if revolver:
                             # this should be a ThreatTopic, below should
@@ -361,9 +373,6 @@ class Animate(Actor):
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
-                            # for comic relief!
-                            #if random.randint(0, 4) == 0:
-                            #    y = pick(ALL_ITEMS)
                             self.address(other,
                                 ThreatGiveMeTopic(self, subject=y),
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -382,9 +391,6 @@ class Animate(Actor):
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
-                            # for comic relief!
-                            #if random.randint(0, 4) == 0:
-                            #    y = pick(ALL_ITEMS)
                             self.address(other,
                                 ThreatTellMeTopic(self, subject=y),
                                 "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -442,20 +448,21 @@ class Animate(Actor):
                         break
                 if memory and memory.subject.name == 'revolver':
                     y = memory.subject
-                    self.emit("<1> retrieved <3> from <2>",
+                    self.emit("<1> retrieved <3> <he-1> had hidden in <2>",
                               [self, x, y])
                     if y.location != x:
-                        self.emit("But it was missing", [self], excl=True)
+                        self.emit("But <he-2> <was-2> missing", [self, y], excl=True)
                         # forget ALLLLLLL about it, then.  so realistic!
                         del self.memory[y.name]
                     else:
                         memory.subject.move_to(self)
                         self.memory[y.name] = Memory(memory.subject, self)
                 if memory:
-                    self.emit("<1> checked that <3> was still in <2>",
+                    y = memory.subject
+                    self.emit("<1> checked that <3> <was-3> still in <2>",
                               [self, x, memory.subject])
                     if memory.subject.location != x:
-                        self.emit("But it was missing", [self], excl=True)
+                        self.emit("But <he-2> <was-2> missing", [self, y], excl=True)
                         del self.memory[memory.subject.name]
                 elif random.randint(0, 2) == 0:
                     self.emit("<1> searched <2>", [self, x])
@@ -526,6 +533,14 @@ class Animate(Actor):
                    [self, other, self_memory.subject, self_memory.location],
                    subject=self_memory.subject)
                 return
+            if self_memory and other_memory:
+                choice = random.randint(0, 1)
+                if choice == 0:
+                    self.question(other, "'Do you think we should do something about <3>?' asked <1>",
+                        [self, other, self_memory.subject])
+                if choice == 1:
+                    self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
+                        [self, other, self_memory.subject])
             # this needs to be not *all* the time
             for x in other.contents:
                 if x.notable():
@@ -636,6 +651,9 @@ class PluralTreasure(Treasure):
     def indefinite(self):
         article = 'some'
         return '%s %s' % (article, self.name)
+
+    def was(self):
+        return "were"
 
 
 class Horror(Actor):

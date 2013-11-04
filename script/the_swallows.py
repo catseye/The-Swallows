@@ -36,7 +36,7 @@ import sys
 # there should be "Bob was in the kitchen" at the start of a paragraph
 #   from Bob's POV *if* the last place the *reader* saw Bob was somewhere
 #   else (fourth wall breaking!  does the *reader* need Memory objects??)
-# "Hello, Bob", replied Alice -- doesn't show up on Bob's PoV
+# Bob should see Alice leaving the room before Bob picks up the falcon
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -156,7 +156,7 @@ class Location(Actor):
         self.enter = enter
         self.contents = []
         self.exits = []
-    
+
     def set_exits(self, *exits):
         self.exits = exits
 
@@ -239,21 +239,20 @@ class Animate(Actor):
 
     # self.location=None implies this is just an initial move
     def move_to(self, location):
-        if self.location is None:
-            self.location = location
-            self.location.contents.append(self)
-            self.emit("<1> was in <2>", [self, self.location])
-            return
-        for x in self.location.contents:
-            # otherwise we get "Bob saw Bob leave the room", eh?
-            if x is self:
-                continue
-            if x.animate():
-                x.emit("<1> saw <2> leave the room", [x, self])
-        self.location.contents.remove(self)
+        initial = (self.location is None)
+        if not initial:
+            for x in self.location.contents:
+                # otherwise we get "Bob saw Bob leave the room", eh?
+                if x is self:
+                    continue
+                if x.animate():
+                    x.emit("<1> saw <2> leave the room", [x, self])
+            self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
         verb = pick(['went to', 'walked to', 'moved to'])
+        if initial:
+            verb = 'was in'
         self.emit("<1> %s <2>" % verb, [self, self.location])
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
@@ -275,7 +274,8 @@ class Animate(Actor):
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
-                other.emit("<1> saw <2> walk into the room", [other, self])
+                if not initial:
+                    other.emit("<1> saw <2> walk into the room", [other, self])
                 self.memory[x.name] = Memory(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
@@ -379,6 +379,8 @@ class Animate(Actor):
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
+            # but otoh this sort of thing does not scale:
+            other.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
             memory = self.memory.get('dead body')
             if memory:

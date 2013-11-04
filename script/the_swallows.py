@@ -23,7 +23,6 @@ import sys
 # "it was so nice" -- actually *have* memories of locations, and feelings
 #   (good/bad, 0 to 10 or something) about memories
 # anxiety memory = the one they're most recently panicked about
-# memory of objects -> memory of hiding them somewhere
 # bullets for the revolver
 # memory of whether the revolver was loaded last time they saw it
 # calling their bluff
@@ -253,9 +252,10 @@ class ThreatTopic(Topic):
 
 
 class Memory(object):
-    def __init__(self, subject, location):
+    def __init__(self, subject, location, i_hid_it_there=False):
         self.subject = subject
         self.location = location
+        self.i_hid_it_there = True
 
 
 class Animate(Actor):
@@ -373,16 +373,21 @@ class Animate(Actor):
                 self.memory[x.name] = Memory(x, self.location)
 
     def live(self):
+        # first, if in a conversation, turn total attention to that
         if self.topic is not None:
             return self.converse(self.topic)
+
+        # otherwise, if there are valuable items here, you *must* pick them up.
         for x in self.location.contents:
             if x.notable() and x.takeable():
                 self.emit("<1> picked up <2>", [self, x])
                 x.move_to(self)
+                self.memory[x.name] = Memory(x, self)
                 return
         people_about = False
 
-        # what the character is aware they're carrying; occasionally = gun
+        # otherwise, fixate on some valuable object (possibly the revolver)
+        # that you are carrying:
         treasure = None
         for y in self.contents:
             if y.treasure():
@@ -394,20 +399,37 @@ class Animate(Actor):
                     treasure = y
                     break
 
+        # check if you are alone
         for x in self.location.contents:
             if x.animate() and x is not self:
                 people_about = True
+
+        # check for some place to hide the thing you're fixating on
         for x in self.location.contents:
             if x.container() and not people_about and treasure:
                 self.emit("<1> hid <2> in <3>", [self, y, x])
                 y.move_to(x)
+                self.memory[y.name] = Memory(y, x, i_hid_it_there=True)
                 return self.wander()
             if x.container() and not people_about and random.randint(0, 2) == 0:
+                # well, didn't I already hide something there?
+                # todo: this is actually far too effective.  the story often
+                # gets to a point where, for each item, one character has
+                # found and re-hidden it in the same place the other character
+                # has hidden it, and they do not check anywhere.
+                already_used = False
+                for key in self.memory:
+                    if self.memory[key].location == x and self.memory[key].i_hid_it_there:
+                        already_used = True
+                        break
+                if already_used:
+                    continue
                 self.emit("<1> examined <2> carefully", [self, x])
                 for y in x.contents:
                     if y.notable() and y.takeable():
                         self.emit("<1> found <2> hidden there, and took <him-2>", [self, y])
                         y.move_to(self)
+                        self.memory[y.name] = Memory(y, self)
         if random.randint(0, 8) == 0:
             which = random.randint(0, 5)
             if which == 0:
@@ -461,6 +483,7 @@ class Animate(Actor):
             # this needs to be not *all* the time
             for x in other.contents:
                 if x.notable():
+                    self.memory[x.name] = Memory(x, other)
                     self.speak_to(other, "'I see you are carrying <indef-3>,' said <1>", [self, other, x])
                     return
             choice = random.randint(0, 3)

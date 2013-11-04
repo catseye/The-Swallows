@@ -32,6 +32,7 @@ import sys
 # memory of whether the revolver was loaded last time they saw it
 # calling their bluff
 # dear me, someone might actually get shot
+# "Bob went to Bob's bedroom"
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -214,6 +215,8 @@ class Animate(Actor):
             participants = [self, other]
         other.topic = topic
         self.emit(phrase, participants)
+        # hack!
+        other.emit(other.name + " observed: " + phrase, participants)
 
     def greet(self, other, phrase, participants=None):
         self.address(other, GreetTopic(self), phrase, participants)
@@ -551,15 +554,22 @@ for chapter in range(1, 16):
     print
 
     c = EventCollector()
-    alice.collector = c
-    bob.collector = c
-    alice.move_to(pick(house), initial=True)
-    bob.move_to(pick(house), initial=True)
     # don't continue a conversation from the previous chapter, please
     alice.topic = None
     bob.topic = None
+    alice.location = None
+    bob.location = None
 
     for paragraph in range(1, 30):
+        alice.collector = oblivion
+        bob.collector = oblivion
+        pov_actor = pick([alice, bob])
+        pov_actor.collector = c
+
+        for actor in (alice, bob):
+            if actor.location is None:
+                actor.move_to(pick(house), initial=True)
+
         while len(c.events) < 20:
             alice.live()
             bob.live()

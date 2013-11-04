@@ -10,7 +10,6 @@ import sys
 
 # TODO
 # "in which bob hides the stolen jewels in the mailbox"
-# "where have you hidden the jewels?"
 # more reacting to the dead body:
 # - needing a drink (add liquor cabinet)
 # - calling the police
@@ -247,15 +246,19 @@ class QuestionTopic(Topic):
     pass
 
 
-class ThreatTopic(Topic):
+class ThreatGiveMeTopic(Topic):
+    pass
+
+
+class ThreatTellMeTopic(Topic):
     pass
 
 
 class Memory(object):
     def __init__(self, subject, location, i_hid_it_there=False):
-        self.subject = subject
-        self.location = location
-        self.i_hid_it_there = True
+        self.subject = subject  # the thing being remembered
+        self.location = location  # where we last remember seeing it
+        self.i_hid_it_there = i_hid_it_there
 
 
 class Animate(Actor):
@@ -287,9 +290,6 @@ class Animate(Actor):
 
     def question(self, other, phrase, participants=None, subject=None):
         self.address(other, QuestionTopic(self, subject=subject), phrase, participants)
-
-    def threaten(self, other, phrase, participants=None, subject=None):
-        self.address(other, ThreatTopic(self, subject=subject), phrase, participants)
 
     def place_in(self, location):
         # like move_to but quieter; for setting up scenes etc
@@ -323,6 +323,14 @@ class Animate(Actor):
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
+        
+        # am I carrying the revolver?
+        revolver = None
+        for z in self.contents:
+            if z.name == 'revolver':
+                revolver = z
+                break
+
         for x in self.location.contents:
             if x == self:
                 continue
@@ -348,11 +356,6 @@ class Animate(Actor):
                         self.emit(
                             "<1> noticed <2> was carrying <indef-3>",
                             [self, other, y])
-                        revolver = None
-                        for z in self.contents:
-                            if z.name == 'revolver':
-                                revolver = z
-                                break
                         if revolver:
                             # this should be a ThreatTopic, below should
                             # be a RequestTopic -- er no, maybe not, but
@@ -360,13 +363,32 @@ class Animate(Actor):
                             # indicate the revolver as part of the Topic
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
+                            other.memory[revolver.name] = Memory(revolver, self)
                             # for comic relief!
                             if random.randint(0, 4) == 0:
                                 y = pick(ALL_ITEMS)
-                            self.threaten(other,
+                            self.address(other,
+                                ThreatGiveMeTopic(self, subject=y),
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
-                                [self, other, y],
-                                subject=y)
+                                [self, other, y])
+                            return
+                # another case of mind-reading.  well, it helps the story advance!
+                # (it would help more to double-check this against your OWN memory)
+                if revolver:
+                    for key in other.memory:
+                        memory = other.memory[key]
+                        if memory.i_hid_it_there and memory.subject.name != 'revolver':
+                            y = memory.subject
+                            self.emit("<1> pointed <3> at <2>",
+                                [self, other, revolver])
+                            other.memory[revolver.name] = Memory(revolver, self)
+                            # for comic relief!
+                            if random.randint(0, 4) == 0:
+                                y = pick(ALL_ITEMS)
+                            self.address(other,
+                                ThreatTellMeTopic(self, subject=y),
+                                "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
+                                [self, other, y])
                             return
             elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
@@ -448,7 +470,7 @@ class Animate(Actor):
     def converse(self, topic):
         self.topic = None
         other = topic.originator
-        if isinstance(topic, ThreatTopic):
+        if isinstance(topic, ThreatGiveMeTopic):
             found_object = None
             for x in self.contents:
                 if x is topic.subject:
@@ -463,6 +485,18 @@ class Animate(Actor):
                     "'Please don't shoot!', <1> cried, and handed over <3>",
                     [self, other, found_object])
                 found_object.move_to(other)
+        elif isinstance(topic, ThreatTellMeTopic):
+            memory = self.memory.get(topic.subject.name)
+            if not memory:
+                self.speak_to(other,
+                    "'I have no memory of that, <2>,' <1> replied",
+                    [self, other, topic.subject])
+            else:
+                self.speak_to(other,
+                    "'Please don't shoot!', <1> cried, 'It's in <3>'",
+                    [self, other, memory.location])
+                other.memory[topic.subject.name] = \
+                  Memory(topic.subject, memory.location)
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])

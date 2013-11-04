@@ -36,7 +36,7 @@ import sys
 # there should be "Bob was in the kitchen" at the start of a paragraph
 #   from Bob's POV *if* the last place the *reader* saw Bob was somewhere
 #   else (fourth wall breaking!  does the *reader* need Memory objects??)
-# and as some kind of debugging aid, option to dump each paragraph from *both* POVs.
+# "Hello, Bob", replied Alice -- doesn't show up on Bob's PoV
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -92,7 +92,9 @@ class Actor(object):
         self.location = None
         self.contents = []
         self.enter = ""
-        self.move_to(location, initial=True)
+        self.location = None
+        if location is not None:
+            self.move_to(location)
 
     def notable(self):
         return False
@@ -128,7 +130,8 @@ class Actor(object):
         if self.collector:
             self.collector.collect(Event(*args, **kwargs))
 
-    def move_to(self, location, initial=False):
+    # if self.location is None, this is just an initial move
+    def move_to(self, location):
         if self.location:
             self.location.contents.remove(self)
         self.location = location
@@ -234,22 +237,24 @@ class Animate(Actor):
     def threaten(self, other, phrase, participants=None, subject=None):
         self.address(other, ThreatTopic(self, subject=subject), phrase, participants)
 
-    def move_to(self, location, initial=False):
-        if self.location:
-            for x in self.location.contents:
-                # otherwise we get "Bob saw Bob leave the room", eh?
-                if x is self:
-                    continue
-                if x.animate():
-                    x.emit("<1> saw <2> leave the room", [x, self])
-            self.location.contents.remove(self)
+    # self.location=None implies this is just an initial move
+    def move_to(self, location):
+        if self.location is None:
+            self.location = location
+            self.location.contents.append(self)
+            self.emit("<1> was in <2>", [self, self.location])
+            return
+        for x in self.location.contents:
+            # otherwise we get "Bob saw Bob leave the room", eh?
+            if x is self:
+                continue
+            if x.animate():
+                x.emit("<1> saw <2> leave the room", [x, self])
+        self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
-        if initial:
-            self.emit("<1> was in <2>", [self, self.location])
-        else:
-            verb = pick(['went to', 'walked to', 'moved to'])
-            self.emit("<1> %s <2>" % verb, [self, self.location])
+        verb = pick(['went to', 'walked to', 'moved to'])
+        self.emit("<1> %s <2>" % verb, [self, self.location])
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
@@ -548,12 +553,15 @@ alices_bed = Container("bed", alices_bedroom)
 revolver = Item('revolver', pick([bobs_bed, alices_bed]))
 dead_body = Horror('dead body', bathroom)
 
-alice = Female('Alice', kitchen)
-bob = Male('Bob', living_room)
+alice = Female('Alice', None)
+bob = Male('Bob', None)
 
 ALL_ITEMS.extend([falcon, jewels, revolver])
 
 ### main ###
+
+friffery = False
+debug = True
 
 print "Swallows and Sorrows (DRAFT)"
 print "============================"
@@ -564,7 +572,8 @@ for chapter in range(1, 16):
     print "-----------"
     print
 
-    c = EventCollector()
+    alice_collector = EventCollector()
+    bob_collector = EventCollector()
     # don't continue a conversation from the previous chapter, please
     alice.topic = None
     bob.topic = None
@@ -572,44 +581,59 @@ for chapter in range(1, 16):
     bob.location = None
 
     for paragraph in range(1, 30):
-        alice.collector = oblivion
-        bob.collector = oblivion
+        alice.collector = alice_collector
+        bob.collector = bob_collector
         pov_actor = pick([alice, bob])
-        pov_actor.collector = c
+        c = pov_actor.collector
 
         for actor in (alice, bob):
             if actor.location is None:
-                actor.move_to(pick(house), initial=True)
+                actor.move_to(pick(house))
 
         while len(c.events) < 20:
             alice.live()
             bob.live()
 
-        if paragraph == 1:
-            choice = random.randint(0, 3)
-            if choice == 0:
-                sys.stdout.write("It was raining.  ")
-            if choice == 1:
-                sys.stdout.write("It was snowing.  ")
-            if choice == 2:
-                sys.stdout.write("The sun was shining.  ")
-            if choice == 3:
-                sys.stdout.write("The day was overcast and humid.  ")
-        elif not str(c.events[0]).startswith("'"):
-            choice = random.randint(0, 8)
-            if choice == 0:
-                sys.stdout.write("Later on, ")
-            if choice == 1:
-                sys.stdout.write("Suddenly, ")
-            if choice == 2:
-                sys.stdout.write("After a moment's consideration, ")
-            if choice == 3:
-                sys.stdout.write("Feeling anxious, ")
+        if friffery:
+            if paragraph == 1:
+                choice = random.randint(0, 3)
+                if choice == 0:
+                    sys.stdout.write("It was raining.  ")
+                if choice == 1:
+                    sys.stdout.write("It was snowing.  ")
+                if choice == 2:
+                    sys.stdout.write("The sun was shining.  ")
+                if choice == 3:
+                    sys.stdout.write("The day was overcast and humid.  ")
+            elif not str(c.events[0]).startswith("'"):
+                choice = random.randint(0, 8)
+                if choice == 0:
+                    sys.stdout.write("Later on, ")
+                if choice == 1:
+                    sys.stdout.write("Suddenly, ")
+                if choice == 2:
+                    sys.stdout.write("After a moment's consideration, ")
+                if choice == 3:
+                    sys.stdout.write("Feeling anxious, ")
 
-        for event in c.events:
-          sys.stdout.write(str(event) + "  ")
-          #sys.stdout.write("\n")
-        print
-        print
-        c.events = []
+        if debug:
+            print "ALICE'S POV:"
+            for event in alice_collector.events:
+                print str(event)
+            print
+            print "BOB'S POV:"
+            for event in bob_collector.events:
+                print str(event)
+            print
+            print "- - - - -"
+            print
+        else:
+            for event in c.events:
+                sys.stdout.write(str(event) + "  ")
+                #sys.stdout.write("\n")
+            print
+            print
+
+        alice_collector.events = []
+        bob_collector.events = []
 

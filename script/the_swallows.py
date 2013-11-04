@@ -24,6 +24,7 @@ import sys
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
+# use indefinite articles appropriately
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]
@@ -175,10 +176,18 @@ class ThreatTopic(Topic):
     pass
 
 
+class Memory(object):
+    def __init__(self, subject, location):
+        self.subject = subject
+        self.location = location
+
+
 class Animate(Actor):
     def __init__(self, name, location, collector=None):
         Actor.__init__(self, name, location, collector=None)
         self.topic = None
+        # hash of actor's name to a Memory object
+        self.memory = {}
 
     def animate(self):
         return True
@@ -212,18 +221,29 @@ class Animate(Actor):
         if initial:
             self.emit("<1> was in <2>", [self, self.location])
         else:
-            self.emit("<1> went to <2>", [self, self.location])
+            verb = pick(['went to', 'walked to', 'moved to'])
+            self.emit("<1> %s <2>" % verb, [self, self.location])
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
         for x in self.location.contents:
-            if x != self and x.horror():
-                verb = pick(['screamed', 'yelped', 'went pale'])
-                self.emit("<1> %s at the sight of <2>" % verb, [self, x], excl=True)
-                return
-            if x != self and x.animate():
+            if x == self:
+                continue
+            if x.horror():
+                memory = self.memory.get(x.name, None)
+                if memory:
+                    amount = pick(['shudder', 'wave', 'uprising'])
+                    emotion = pick(['fear', 'disgust', 'nausea', 'uneasiness'])
+                    self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
+                    self.memory[x.name] = Memory(x, self.location)
+                else:
+                    verb = pick(['screamed', 'yelped', 'went pale'])
+                    self.emit("<1> %s at the sight of <2>" % verb, [self, x], excl=True)
+                    self.memory[x.name] = Memory(x, self.location)
+            elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
+                self.memory[x.name] = Memory(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
                     if y.treasure():
@@ -248,8 +268,9 @@ class Animate(Actor):
                                 [self, other, y],
                                 subject=y)
                             return
-            elif x != self and x.notable():
+            elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
+                self.memory[x.name] = Memory(x, self.location)
 
     def live(self):
         if self.topic is not None:
@@ -323,6 +344,15 @@ class Animate(Actor):
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
+            # this needs to be more general
+            memory = self.memory.get('dead body')
+            if memory:
+                self.question(other,
+                   "'Did you know there's <3> in <4>?' asked <1> quickly",
+                   [self, other, memory.subject, memory.location],
+                   subject=memory.subject)
+                return
+            # this needs to be not *all* the time
             for x in other.contents:
                 if x.notable():
                     self.speak_to(other, "'I see you are carrying <3>,' said <1>", [self, other, x])
@@ -334,8 +364,12 @@ class Animate(Actor):
                 self.speak_to(other, "'I was wondering where you were.' said <1>")
         elif isinstance(topic, QuestionTopic):
             if topic.subject is not None:
-                self.speak_to(other, "'I know nothing about <3>, <2>,' explained <1>",
-                    [self, other, topic.subject])
+                choice = random.randint(0, 1)
+                if choice == 0:
+                    self.speak_to(other, "'I know nothing about <3>, <2>,' explained <1>",
+                       [self, other, topic.subject])
+                if choice == 1:
+                    self.speak_to(other, "'Perhaps, <2>,' replied <1>")
             else:
                 self.speak_to(other, "'Perhaps, <2>,' replied <1>")
         elif isinstance(topic, SpeechTopic):

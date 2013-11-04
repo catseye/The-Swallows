@@ -25,7 +25,7 @@ import sys
 #   would be nicer in Prolog.
 # DRAMATIC IRONY would be really nice, but hard to pull off.
 # "it was so nice" -- actually *have* memories of locations, and feelings
-# (good/bad, 0 to 10 or something) about memories
+#   (good/bad, 0 to 10 or something) about memories
 # anxiety memory = the one they're most recently panicked about
 # memory of objects -> memory of hiding them somewhere
 # bullets for the revolver
@@ -237,23 +237,35 @@ class Animate(Actor):
     def threaten(self, other, phrase, participants=None, subject=None):
         self.address(other, ThreatTopic(self, subject=subject), phrase, participants)
 
-    # self.location=None implies this is just an initial move
-    def move_to(self, location):
-        initial = (self.location is None)
-        if not initial:
-            for x in self.location.contents:
-                # otherwise we get "Bob saw Bob leave the room", eh?
-                if x is self:
-                    continue
-                if x.animate():
-                    x.emit("<1> saw <2> leave the room", [x, self])
+    def place_in(self, location):
+        # like move_to but quieter; for setting up scenes etc
+        if self.location is not None:
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.append(self)
-        verb = pick(['went to', 'walked to', 'moved to'])
-        if initial:
-            verb = 'was in'
-        self.emit("<1> %s <2>" % verb, [self, self.location])
+        self.emit("<1> was in <2>", [self, self.location])
+        for x in self.location.contents:
+            if x == self:
+                continue
+            if x.notable():
+                self.emit("<1> saw <2>", [self, x])
+                self.memory[x.name] = Memory(x, self.location)
+
+
+    def move_to(self, location):
+        assert(location != self.location)
+        assert(location is not None)
+        for x in self.location.contents:
+            # otherwise we get "Bob saw Bob leave the room", eh?
+            if x is self:
+                continue
+            if x.animate():
+                x.emit("<1> saw <2> leave the room", [x, self])
+        if self.location is not None:
+            self.location.contents.remove(self)
+        self.location = location
+        self.location.contents.append(self)
+        self.emit("<1> went to <2>", [self, self.location])
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
@@ -274,8 +286,7 @@ class Animate(Actor):
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
-                if not initial:
-                    other.emit("<1> saw <2> walk into the room", [other, self])
+                other.emit("<1> saw <2> walk into the room", [other, self])
                 self.memory[x.name] = Memory(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
@@ -398,7 +409,7 @@ class Animate(Actor):
             if choice == 0:
                 self.question(other, "'Lovely weather we're having, isn't it?' asked <1>")
             if choice == 1:
-                self.speak_to(other, "'I was wondering where you were.' said <1>")
+                self.speak_to(other, "'I was wondering where you were,' said <1>")
         elif isinstance(topic, QuestionTopic):
             if topic.subject is not None:
                 choice = random.randint(0, 1)
@@ -563,7 +574,7 @@ ALL_ITEMS.extend([falcon, jewels, revolver])
 ### main ###
 
 friffery = False
-debug = True
+debug = False
 
 print "Swallows and Sorrows (DRAFT)"
 print "============================"
@@ -585,14 +596,20 @@ for chapter in range(1, 16):
     for paragraph in range(1, 30):
         alice.collector = alice_collector
         bob.collector = bob_collector
-        pov_actor = pick([alice, bob])
-        c = pov_actor.collector
+        
+        # we could do this randomly...
+        #pov_actor = pick([alice, bob])
+        # but, we could also alternate.  They ARE Alice and Bob, after all.
+        pov_actor = (alice, bob)[(paragraph - 1) % 2]
 
         for actor in (alice, bob):
             if actor.location is None:
-                actor.move_to(pick(house))
+                actor.place_in(pick(house))
+            else:
+                self = actor
+                self.emit("<1> was in <2>", [self, self.location])
 
-        while len(c.events) < 20:
+        while len(pov_actor.collector.events) < 20:
             alice.live()
             bob.live()
 
@@ -630,7 +647,7 @@ for chapter in range(1, 16):
             print "- - - - -"
             print
         else:
-            for event in c.events:
+            for event in pov_actor.collector.events:
                 sys.stdout.write(str(event) + "  ")
                 #sys.stdout.write("\n")
             print

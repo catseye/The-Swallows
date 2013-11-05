@@ -25,10 +25,8 @@ import sys
 # bullets for the revolver
 
 # Mechanics:
-# have "needing a drink" be an actual goal.  should it be implemented as a
-#   fancy, extensible Goal object, or just a boolean attribute?
-# have having had the drink actually calm their nerves so they no longer
-#   need a drink
+# they should always scream at seeing the dead body.  the scream should
+#   be heard throughout the house and yard.
 # ...they check that the brandy is still in the liquor cabinet.  is this
 #   really necessary?
 # certain things can't be taken, but can be dragged (like the body)
@@ -50,7 +48,6 @@ import sys
 # eliminate identical duplicate sentences
 # Bob is in the dining room & "Bob made his way to the dining room" ->
 #  "Bob wandered around for a bit, then came back to the dining room"
-# the driveway is not a "room"
 # a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -176,7 +173,7 @@ class Editor(object):
             self.events.append(event)
 
 
-### TOPICS AND MEMORIES ###
+### TOPICS ###
 
 # a "topic" is just what a character has recently had addressed to
 # them.  It could be anything, not just words, by another character
@@ -211,6 +208,8 @@ class ThreatGiveMeTopic(Topic):
 class ThreatTellMeTopic(Topic):
     pass
 
+
+### MEMORIES ###
 
 class Memory(object):
     def __init__(self, subject, location, i_hid_it_there=False):
@@ -389,7 +388,7 @@ class Animate(Actor):
             if x is self:
                 continue
             if x.animate():
-                x.emit("<1> saw <2> leave the room", [x, self])
+                x.emit("<1> saw <2> leave the %s" % x.location.noun(), [x, self])
         if self.location is not None:
             self.location.contents.remove(self)
         self.location = location
@@ -407,7 +406,7 @@ class Animate(Actor):
                 memory = self.memory.get(x.name, None)
                 if memory:
                     amount = pick(['shudder', 'wave'])
-                    emotion = pick(['fear', 'disgust', 'sickness'])
+                    emotion = pick(['fear', 'disgust', 'sickness', 'loathing'])
                     self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
                     self.memory[x.name] = Memory(x, self.location)
                 else:
@@ -418,7 +417,7 @@ class Animate(Actor):
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
-                other.emit("<1> saw <2> walk into the room", [other, self])
+                other.emit("<1> saw <2> walk into the %s" % self.location.noun(), [other, self])
                 self.memory[x.name] = Memory(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
@@ -846,11 +845,15 @@ class Female(Animate):
 ### LOCATIONS ###
 
 class Location(Actor):
-    def __init__(self, name, enter="went to"):
+    def __init__(self, name, enter="went to", noun="room"):
         self.name = name
         self.enter = enter
         self.contents = []
         self.exits = []
+        self.noun_ = noun
+
+    def noun(self):
+        return self.noun_
 
     def set_exits(self, *exits):
         self.exits = exits
@@ -901,10 +904,10 @@ kitchen = Location('kitchen')
 living_room = Location('living room')
 dining_room = Location('dining room')
 front_hall = Location('front hall')
-driveway = Location('driveway')
-garage = Location('garage')
-path_by_the_shed = Location('path by the shed')
-shed = Location('shed')
+driveway = Location('driveway', noun="driveway")
+garage = Location('garage', noun="garage")
+path_by_the_shed = Location('path by the shed', noun="path")
+shed = Location('shed', noun="shed")
 upstairs_hall = Location('upstairs hall')
 study = Location('study')
 bathroom = Location('bathroom')

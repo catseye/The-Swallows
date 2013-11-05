@@ -12,11 +12,17 @@ import sys
 
 # World:
 # more reacting to the dead body:
-# - drinking the glass of brandy after pouring it
+# - drinking the glass of brandy after pouring it?  (is implied for now)
+# - discussing their ideas of what to do about it
+# - if they *agree*, take one of the courses of action
+# - if they *disagree*, well... the revolver may prove persuasive
 # - calling the police (do they have a landline?  it might be entertaining
 #   if they share one mobile phone between the both of them)
-# - trying to dispose of it
-# an unspeakable thing in the basement!
+#   - i'll have to introduce a new character... the detective.  yow.
+# - trying to dispose of it... they try to drag it to... the garden?
+#   i'll have to add a garden.  and a shovel.
+# an unspeakable thing in the basement!  (don't they have enough excitement
+#   in their lives?)
 # bullets for the revolver
 
 # Mechanics:
@@ -49,6 +55,8 @@ import sys
 # the Editor should take all the events in the chapter, and decide where
 #   paragraph breaks should go.  this is difficult, because syncing up
 #   Bob's and Alice's events.  timestamps?
+# at least, the Editor should record "rich events", which include information
+#   about the main (acting) character, and where the audience last saw them
 # use indef art when they have no memory of an item that they see
 # dramatic irony would be really nice, but hard to pull off.  Well, a certain
 #  amount happens naturally now, with character pov.  but more could be done
@@ -325,6 +333,13 @@ class Animate(Actor):
         # hash of subject's name to a Memory object
         self.memory = {}
         self.desired_items = set()
+        # this should really be *derived* from having a recent memory
+        # of seeing a dead body in the bathroom.  but for now,
+        self.nerves = 'calm'
+        # this, too, should be more general and sophisticated.
+        # it is neither a memory, nor a belief, but a judgment, and
+        # eventually possibly a goal.
+        self.what_to_do_about_the_body = None
 
     def animate(self):
         return True
@@ -333,8 +348,9 @@ class Animate(Actor):
         if participants is None:
             participants = [self, other]
         other.topic = topic
+        # in the absence of a better event-collection system
+        # we do this sort of thing when >1 actor can observe an event:
         self.emit(phrase, participants)
-        # kind of a hack!
         other.emit(phrase, participants)
 
     def greet(self, other, phrase, participants=None):
@@ -393,6 +409,7 @@ class Animate(Actor):
                     verb = pick(['screamed', 'yelped', 'went pale'])
                     self.emit("<1> %s at the sight of <indef-2>" % verb, [self, x], excl=True)
                     self.memory[x.name] = Memory(x, self.location)
+                    self.nerves = 'shaken'
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
@@ -537,7 +554,8 @@ class Animate(Actor):
                 containers.append((x, memories))
         if not containers:
             return self.wander()
-        # ok!  we now have a list of containers, each of which has zero or more memories of things being in it.
+        # ok!  we now have a list of containers, each of which has zero or
+        # more memories of things being in it.
         if fixated_on:
             (container, memories) = pick(containers)
             self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
@@ -650,27 +668,46 @@ class Animate(Actor):
                     self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
                         [self, other, self_memory.subject])
                 if choice == 2:
-                    if brandy.location == self:
-                        self.emit("<1> poured <him-1>self a glass of brandy",
-                            [self, other, self_memory.subject])
-                        if brandy in self.desired_items:
-                            self.desired_items.remove(brandy)
-                        self.put_down(brandy)
-                    elif self.memory.get(brandy.name):
-                        self.speak_to(other,
-                            "'I really must pour myself a drink,' moaned <1>",
-                            [self, other, self_memory.subject],
-                            subject=brandy)
-                        self.desired_items.add(brandy)
-                        if random.randint(0, 1) == 0:
-                            self.address(other, WhereQuestionTopic(self, subject=brandy),
-                                "'Where did you say <3> was?'",
-                                [self, other, brandy])
+                    if self.nerves == 'calm':
+                        # this should probably be affected by whether this
+                        # character has, oh, i don't know, put the other at
+                        # gunpoint yet, or not, or something
+                        if self.what_to_do_about_the_body is None:
+                            if random.randint(0, 1) == 0:
+                                self.what_to_do_about_the_body = 'call'
+                            else:
+                                self.what_to_do_about_the_body = 'dispose'
+                        if self.what_to_do_about_the_body == 'call':
+                            self.speak_to(other, "'I really think we should call the police, <2>,' said <1>",
+                                [self, other, self_memory.subject])
+                        elif self.what_to_do_about_the_body == 'dispose':
+                            self.speak_to(other, "'I think we should try to dispose of <3>, <2>,' said <1>",
+                                [self, other, self_memory.subject])
+                        else:
+                            raise ValueError("damn")
                     else:
-                        self.address(other, WhereQuestionTopic(self, subject=brandy),
-                            "'Where is the brandy?  I need a drink,' managed <1>",
-                            [self, other, self_memory.subject])
-                        self.desired_items.add(brandy)
+                        if brandy.location == self:
+                            self.emit("<1> poured <him-1>self a glass of brandy",
+                                [self, other, self_memory.subject])
+                            if brandy in self.desired_items:
+                                self.desired_items.remove(brandy)
+                            self.nerves = 'calm'
+                            self.put_down(brandy)
+                        elif self.memory.get(brandy.name):
+                            self.speak_to(other,
+                                "'I really must pour myself a drink,' moaned <1>",
+                                [self, other, self_memory.subject],
+                                subject=brandy)
+                            self.desired_items.add(brandy)
+                            if random.randint(0, 1) == 0:
+                                self.address(other, WhereQuestionTopic(self, subject=brandy),
+                                    "'Where did you say <3> was?'",
+                                    [self, other, brandy])
+                        else:
+                            self.address(other, WhereQuestionTopic(self, subject=brandy),
+                                "'Where is the brandy?  I need a drink,' managed <1>",
+                                [self, other, self_memory.subject])
+                            self.desired_items.add(brandy)
                 return
             # this need not be *all* the time
             for x in other.contents:

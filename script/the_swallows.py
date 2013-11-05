@@ -12,29 +12,53 @@ import sys
 
 # World:
 # more reacting to the dead body:
-# - needing a drink
-# - calling the police
+# - drinking the glass of brandy after pouring it
+# - calling the police (do they have a landline?  it might be entertaining
+#   if they share one mobile phone between the both of them)
 # - trying to dispose of it
 # an unspeakable thing in the basement!
 # bullets for the revolver
 
 # Mechanics:
+# have "needing a drink" be an actual goal.  should it be implemented as a
+#   fancy, extensible Goal object, or just a boolean attribute?
+# the event-accumulation framework probably needs rewriting.  or at least,
+#   more methods on actors need to take account that those actions can be
+#   observed by other actors in the same room, and thus possibly in the
+#   story.  For example, putting down the bottle of brandy.
+# btw, the bottle of brandy
+# certain things can't be taken, but can be dragged (like the body)
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
-# DRAMATIC IRONY would be really nice, but hard to pull off.
 # "it was so nice" -- actually *have* memories of locations, and feelings
 #   (good/bad, 0 to 10 or something) about memories
 # anxiety memory = the one they're most recently panicked about
 # memory of whether the revolver was loaded last time they saw it
 # calling their bluff
-# dear me, someone might actually get shot
+# making a run for it when at gunpoint (or trying to distract them,
+#   slap the gun away, scramble for it, etc)
+# revolver might jam when they try to shoot it (maybe it should be a
+#   pistol instead, as those can jam more easily)
+# dear me, someone might actually get shot.  then what?  another dead body?
 
 # Diction:
-# "Chapter 3.  _In which Bob hides the stolen jewels in the mailbox, etc_"
 # "Bob went to Bob's bedroom"
-# a better solution for "Bob was in the kitchen" at the start of a paragraph
+# "...stolen jewels?" "It's in the mailbox!" grammar fail
+# the bottle of brandy is not "hidden" in the liquor cabinet.  it is in
+#   fact what the liquor cabinet is kind of FOR.
+# a better solution for "Bob was in the kitchen" at the start of a paragraph;
+#   this might include significant memories Bob acquired in the last
+#   paragraph -- such as finding a revolver in the bed
 # paragraphs should not always be the same number of events.  variety!
+# the Editor should take all the events in the chapter, and decide where
+#   paragraph breaks should go.  this is difficult, because syncing up
+#   Bob's and Alice's events.  timestamps?
 # use indef art when they have no memory of an item that they see
+# dramatic irony would be really nice, but hard to pull off.  Well, a certain
+#  amount happens naturally now, with character pov.  but more could be done
+# "Chapter 3.  _In which Bob hides the stolen jewels in the mailbox, etc_" --
+#  i.e. chapter summaries -- that's a little too fancy to hope for, but with
+#  a sufficiently smart Editor it could be done
 
 def pick(l):
     return l[random.randint(0, len(l)-1)]

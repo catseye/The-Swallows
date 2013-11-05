@@ -25,6 +25,8 @@ import sys
 # bullets for the revolver
 
 # Mechanics:
+# they check containers while someone else is in the room?  how'd that get that way?
+# 'Hello, Alice', said Bob.  'Hello, Bob', replied Alice.  NEVER GETS OLD
 # they should always scream at seeing the dead body.  the scream should
 #   be heard throughout the house and yard.
 # ...they check that the brandy is still in the liquor cabinet.  is this
@@ -73,6 +75,7 @@ ALL_ITEMS = []
 # items that the mechanics need to know about; they will be defined later
 revolver = None
 brandy = None
+dead_body = None
 
 ### EVENTS ###
 
@@ -332,8 +335,8 @@ class Animate(Actor):
     def __init__(self, name, location, collector=None):
         Actor.__init__(self, name, location, collector=None)
         self.topic = None
-        # hash of subject's name to a Memory object
-        self.memory = {}
+        # hash of actor object to Memory object
+        self.memories = {}
         self.desired_items = set()
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
@@ -347,6 +350,14 @@ class Animate(Actor):
 
     def animate(self):
         return True
+
+    def remember(self, thing, location, i_hid_it_there=False):
+        assert isinstance(thing, Actor)
+        self.memories[thing] = Memory(thing, location, i_hid_it_there=i_hid_it_there)
+    
+    def recall(self, thing):
+        assert isinstance(thing, Actor)
+        return self.memories.get(thing, None)
 
     def address(self, other, topic, phrase, participants=None):
         if participants is None:
@@ -378,7 +389,7 @@ class Animate(Actor):
                 continue
             if x.notable():
                 self.emit("<1> saw <2>", [self, x])
-                self.memory[x.name] = Memory(x, self.location)
+                self.remember(x, self.location)
 
     def move_to(self, location):
         assert(location != self.location)
@@ -403,22 +414,22 @@ class Animate(Actor):
             if x == self:
                 continue
             if x.horror():
-                memory = self.memory.get(x.name, None)
+                memory = self.recall(x)
                 if memory:
                     amount = pick(['shudder', 'wave'])
                     emotion = pick(['fear', 'disgust', 'sickness', 'loathing'])
                     self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
-                    self.memory[x.name] = Memory(x, self.location)
+                    self.remember(x, self.location)
                 else:
                     verb = pick(['screamed', 'yelped', 'went pale'])
                     self.emit("<1> %s at the sight of <indef-2>" % verb, [self, x], excl=True)
-                    self.memory[x.name] = Memory(x, self.location)
+                    self.remember(x, self.location)
                     self.nerves = 'shaken'
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
                 other.emit("<1> saw <2> walk into the %s" % self.location.noun(), [other, self])
-                self.memory[x.name] = Memory(x, self.location)
+                self.remember(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
                     if y.treasure():
@@ -434,7 +445,7 @@ class Animate(Actor):
                                 [self, other, revolver])
                             other.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
-                            other.memory[revolver.name] = Memory(revolver, self)
+                            other.remember(revolver, self)
                             self.address(other,
                                 ThreatGiveMeTopic(self, subject=y),
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -443,50 +454,49 @@ class Animate(Actor):
                 # another case of mind-reading.  well, it helps the story advance!
                 # (it would help more to double-check this against your OWN memory)
                 if revolver.location == self:
-                    for key in other.memory:
-                        memory = other.memory[key]
-                        self_memory = self.memory.get(key)
+                    for thing in other.memories:
+                        memory = other.recall(thing)
+                        self_memory = self.recall(thing)
                         if self_memory:
                             continue
                         if memory.i_hid_it_there and memory.subject is not revolver:
-                            y = memory.subject
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
-                            other.memory[revolver.name] = Memory(revolver, self)
+                            other.remember(revolver, self)
                             self.address(other,
-                                ThreatTellMeTopic(self, subject=y),
+                                ThreatTellMeTopic(self, subject=thing),
                                 "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
-                                [self, other, y])
+                                [self, other, thing])
                             return
             elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
-                self.memory[x.name] = Memory(x, self.location)
+                self.remember(x, self.location)
 
     def put_down(self, item):
         assert(item.location == self)
         self.emit("<1> put down <2>", [self, item])
         item.move_to(self.location)
-        self.memory[item.name] = Memory(item, self.location)
-        for x in self.location.contents:
-            if x is self:
+        self.remember(item, self.location)
+        for other in self.location.contents:
+            if other is self:
                 continue
-            if x.animate():
-                x.emit("<1> put down <2>", [self, item])
-                x.memory[item.name] = Memory(item, self.location)
+            if other.animate():
+                other.emit("<1> put down <2>", [self, item])
+                other.remember(item, self.location)
 
     def pick_up(self, item):
         assert(item.location == self.location)
         self.emit("<1> picked up <2>", [self, item])
         item.move_to(self)
-        self.memory[item.name] = Memory(item, self)
-        for x in self.location.contents:
-            if x is self:
+        self.remember(item, self)
+        for other in self.location.contents:
+            if other is self:
                 continue
-            if x.animate():
-                x.emit("<1> picked up <2>", [self, item])
-                x.memory[item.name] = Memory(item, self)
+            if other.animate():
+                other.emit("<1> picked up <2>", [self, item])
+                other.remember(item, self)
 
     def give_to(self, other, item):
         assert(item.location == self)
@@ -495,8 +505,8 @@ class Animate(Actor):
         self.emit("<1> gave <3> to <2>", [self, other, item])
         other.emit("<1> gave <3> to <2>", [self, other, item])
         item.move_to(other)
-        self.memory[item.name] = Memory(item, other)
-        other.memory[item.name] = Memory(item, other)
+        self.remember(item, other)
+        other.remember(item, other)
 
     def wander(self):
         self.move_to(
@@ -558,10 +568,10 @@ class Animate(Actor):
             if x.container():
                 # did I hide something here previously?
                 memories = []
-                for key in self.memory:
-                    if self.memory[key].location == x:
-                        memories.append(self.memory[key])
-                
+                for thing in self.memories:
+                    memory = self.recall(thing)
+                    if memory.location == x:
+                        memories.append(memory)
                 containers.append((x, memories))
         if not containers:
             return self.wander()
@@ -571,7 +581,7 @@ class Animate(Actor):
             (container, memories) = pick(containers)
             self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
             fixated_on.move_to(container)
-            self.memory[fixated_on.name] = Memory(fixated_on, container, i_hid_it_there=True)
+            self.remember(fixated_on, container, i_hid_it_there=True)
             return self.wander()
         else:
             # we're looking for treasure!
@@ -597,30 +607,30 @@ class Animate(Actor):
                     if memory.subject.location != container:
                         self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
                         # forget ALLLLLLL about it, then.  so realistic!
-                        del self.memory[memory.subject.name]
+                        del self.memories[memory.subject]
                     else:
                         memory.subject.move_to(self)
-                        self.memory[memory.subject.name] = Memory(memory.subject, self)
+                        self.remember(memory.subject, self)
                 else:
                     self.emit("<1> checked that <3> <was-3> still in <2>",
                               [self, container, memory.subject])
                     # but!
                     if memory.subject.location != container:
                         self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
-                        del self.memory[memory.subject.name]
+                        del self.memories[memory.subject]
             else:  # no memories of this
                 self.emit("<1> searched <2>", [self, container])
                 desired_things = []
                 for thing in container.contents:
-                    # remember that you saw it there
-                    self.memory[thing.name] = Memory(thing, container)
+                    # remember what you saw whilst searching this container
+                    self.remember(thing, container)
                     if thing.treasure() or thing.weapon() or thing in self.desired_items:
                         desired_things.append(thing)
                 if desired_things:
                     thing = pick(desired_things)
                     self.emit("<1> found <2> there, and took <him-2>", [self, thing])
                     thing.move_to(self)
-                    self.memory[thing.name] = Memory(thing, self)
+                    self.remember(thing, self)
 
     def converse(self, topic):
         self.topic = None
@@ -641,7 +651,7 @@ class Animate(Actor):
                     [self, other, found_object])
                 self.give_to(other, found_object)
         elif isinstance(topic, ThreatTellMeTopic):
-            memory = self.memory.get(topic.subject.name)
+            memory = self.recall(topic.subject)
             if not memory:
                 self.speak_to(other,
                     "'I have no memory of that, <2>,' <1> replied",
@@ -651,22 +661,21 @@ class Animate(Actor):
                     "'Please don't shoot!', <1> cried, '<he-3> <is-3> in <4>'",
                     [self, other, topic.subject, memory.location])
                 # this is not really a *memory*, btw, it's a *belief*
-                other.memory[topic.subject.name] = \
-                  Memory(topic.subject, memory.location)
+                other.remember(topic.subject, memory.location)
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
             # but otoh this sort of thing does not scale:
             other.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
-            self_memory = self.memory.get('dead body')
+            self_memory = self.recall(dead_body)
             if self_memory:
                 self.discuss(other, self_memory)
                 return
             # this need not be *all* the time
             for x in other.contents:
                 if x.notable():
-                    self.memory[x.name] = Memory(x, other)
+                    self.remember(x, other)
                     self.speak_to(other, "'I see you are carrying <indef-3>,' said <1>", [self, other, x])
                     return
             choice = random.randint(0, 3)
@@ -685,7 +694,7 @@ class Animate(Actor):
             else:
                 self.speak_to(other, "'Perhaps, <2>,' replied <1>")
         elif isinstance(topic, WhereQuestionTopic):
-            memory = self.memory.get(topic.subject.name)
+            memory = self.recall(topic.subject)
             if not memory:
                 self.speak_to(other,
                     "'I don't know,' <1> answered simply",
@@ -696,7 +705,7 @@ class Animate(Actor):
                     [self, other, topic.subject])
             elif topic.subject.location == self:
                 self.speak_to(other,
-                    "'I've got <3> right here, <2>.'",
+                    "'I've got <3> right here, <2>'",
                     [self, other, topic.subject])
                 self.put_down(topic.subject)
             else:
@@ -708,8 +717,8 @@ class Animate(Actor):
                     self.speak_to(other,
                         "'I believe it's in <3>, <2>,', <1> recalled",
                         [self, other, memory.location])
-                other.memory[topic.subject.name] = \
-                  Memory(topic.subject, memory.location)
+                # again, belief.  hearsay.  not a memory, really.
+                other.remember(topic.subject, memory.location)
         elif isinstance(topic, SpeechTopic):
             choice = random.randint(0, 5)
             if choice == 0:
@@ -734,7 +743,7 @@ class Animate(Actor):
         # in general, characters should not be able to read each other's
         # minds.  however, it's convenient here.  besides, their face would
         # be pretty easy to read in this circumstance.
-        other_memory = other.memory.get(self_memory.subject.name)
+        other_memory = other.recall(self_memory.subject)
         if self_memory and not other_memory:
             self.question(other,
                "'Did you know there's <indef-3> in <4>?' asked <1>",
@@ -760,7 +769,7 @@ class Animate(Actor):
                             self.desired_items.remove(brandy)
                         self.nerves = 'calm'
                         self.put_down(brandy)
-                    elif self.memory.get(brandy.name):
+                    elif self.recall(brandy):
                         self.speak_to(other,
                             "'I really must pour myself a drink,' moaned <1>",
                             [self, other, self_memory.subject],
@@ -954,17 +963,22 @@ ALL_ITEMS.extend([falcon, jewels, revolver, brandy])
 ### util ###
 
 def dump_memory(actor):
-    for key in actor.memory:
+    for thing in actor.memories:
+        memory = actor.memories[thing]
         print ".oO{ %s is in %s }" % (
-            actor.memory[key].subject.render([]),
-            actor.memory[key].location.render([]))
-        if actor.memory[key].i_hid_it_there:
+            memory.subject.render([]),
+            memory.location.render([]))
+        if memory.i_hid_it_there:
             print ".oO{ I hid it there }"
+    print "desired items:", repr(actor.desired_items)
+    print "decisions:", repr(actor.what_to_do_about)
+    print "knowledge of others' decisions:", repr(actor.other_decision_about)
+
 
 ### main ###
 
 friffery = False
-debug = False
+DEBUG = False
 
 print "Swallows and Sorrows (DRAFT)"
 print "============================"
@@ -1030,29 +1044,23 @@ for chapter in range(1, 17):
                 if choice == 3:
                     sys.stdout.write("Feeling anxious, ")
 
-        if debug:
+        if DEBUG:
             print "ALICE'S POV:"
             for event in alice_collector.events:
                 print str(event)
             print
             dump_memory(alice)
-            print repr(alice.desired_items)
-            print alice.what_to_do_about_the_body
-            print alice.other_decision_about_the_body
             print
             print "BOB'S POV:"
             for event in bob_collector.events:
                 print str(event)
             print
             dump_memory(bob)
-            print repr(bob.desired_items)
-            print bob.what_to_do_about_the_body
-            print bob.other_decision_about_the_body
             print
             print "- - - - -"
             print
 
-        if not debug:
+        if not DEBUG:
             editor = Editor()
             for event in pov_actor.collector.events:
                 editor.read(event)

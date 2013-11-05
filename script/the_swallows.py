@@ -329,6 +329,28 @@ class PluralMixin(object):
         return "are"
 
 
+class MasculineMixin(object):
+    def posessive(self):
+        return "his"
+
+    def accusative(self):
+        return "him"
+
+    def pronoun(self):
+        return "he"
+
+
+class FeminineMixin(object):
+    def posessive(self):
+        return "her"
+
+    def accusative(self):
+        return "her"
+
+    def pronoun(self):
+        return "she"
+
+
 ### ANIMATE OBJECTS ###
 
 class Animate(Actor):
@@ -823,32 +845,12 @@ class Animate(Actor):
             raise ValueError("damn")
 
 
-class Male(Animate):
-    def article(self):
-        return ''
-
-    def posessive(self):
-        return "his"
-
-    def accusative(self):
-        return "him"
-
-    def pronoun(self):
-        return "he"
+class Male(MasculineMixin, ProperMixin, Animate):
+    pass
 
 
-class Female(Animate):
-    def article(self):
-        return ''
-
-    def posessive(self):
-        return "her"
-
-    def accusative(self):
-        return "her"
-
-    def pronoun(self):
-        return "she"
+class Female(FeminineMixin, ProperMixin, Animate):
+    pass
 
 
 ### LOCATIONS ###

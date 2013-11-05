@@ -26,10 +26,6 @@ import sys
 #   need a drink
 # ...they check that the brandy is still in the liquor cabinet.  is this
 #   really necessary?
-# the event-accumulation framework probably needs rewriting.  or at least,
-#   more methods on actors need to take account that those actions can be
-#   observed by other actors in the same room, and thus possibly in the
-#   story.  For example, putting down the bottle of brandy.
 # certain things can't be taken, but can be dragged (like the body)
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
@@ -43,10 +39,10 @@ import sys
 # revolver might jam when they try to shoot it (maybe it should be a
 #   pistol instead, as those can jam more easily)
 # dear me, someone might actually get shot.  then what?  another dead body?
+# the event-accumulation framework could use rewriting at some point.
 
 # Diction:
 # "Bob went to Bob's bedroom"
-# "...stolen jewels?" "It's in the mailbox!" grammar fail
 # a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -89,6 +85,7 @@ class Event(object):
             phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
             phrase = phrase.replace('<he-%d>' % (i + 1), participant.pronoun())
             phrase = phrase.replace('<was-%d>' % (i + 1), participant.was())
+            phrase = phrase.replace('<is-%d>' % (i + 1), participant.is_())
             i = i + 1
         if self.excl:
             phrase = phrase + '!'
@@ -218,6 +215,9 @@ class Actor(object):
     def was(self):
         return "was"
 
+    def is_(self):
+        return "is"
+
     def emit(self, *args, **kwargs):
         if self.collector:
             self.collector.collect(Event(*args, **kwargs))
@@ -346,7 +346,6 @@ class Animate(Actor):
                 self.emit("<1> saw <2>", [self, x])
                 self.memory[x.name] = Memory(x, self.location)
 
-
     def move_to(self, location):
         assert(location != self.location)
         assert(location is not None)
@@ -430,6 +429,40 @@ class Animate(Actor):
                 self.emit("<1> saw <2>", [self, x])
                 self.memory[x.name] = Memory(x, self.location)
 
+    def put_down(self, item):
+        assert(item.location == self)
+        self.emit("<1> put down <2>", [self, item])
+        item.move_to(self.location)
+        self.memory[item.name] = Memory(item, self.location)
+        for x in self.location.contents:
+            if x is self:
+                continue
+            if x.animate():
+                x.emit("<1> put down <2>", [self, item])
+                x.memory[item.name] = Memory(item, self.location)
+
+    def pick_up(self, item):
+        assert(item.location == self.location)
+        self.emit("<1> picked up <2>", [self, item])
+        item.move_to(self)
+        self.memory[item.name] = Memory(item, self)
+        for x in self.location.contents:
+            if x is self:
+                continue
+            if x.animate():
+                x.emit("<1> picked up <2>", [self, item])
+                x.memory[item.name] = Memory(item, self)
+
+    def give_to(self, other, item):
+        assert(item.location == self)
+        # XXX seriously? this isn't preserved? blast
+        # assert(self.location == other.location)
+        self.emit("<1> gave <3> to <2>", [self, other, item])
+        other.emit("<1> gave <3> to <2>", [self, other, item])
+        item.move_to(other)
+        self.memory[item.name] = Memory(item, other)
+        other.memory[item.name] = Memory(item, other)
+
     def live(self):
         # first, if in a conversation, turn total attention to that
         if self.topic is not None:
@@ -439,9 +472,7 @@ class Animate(Actor):
         # them up.
         for x in self.location.contents:
             if x.treasure() or x.weapon() or x in self.desired_items:
-                self.emit("<1> picked up <2>", [self, x])
-                x.move_to(self)
-                self.memory[x.name] = Memory(x, self)
+                self.pick_up(x)
                 return
         people_about = False
 
@@ -503,6 +534,10 @@ class Animate(Actor):
             # we're looking for treasure!
             # todo: it would maybe be better to prioritize this selection
             (container, memories) = pick(containers)
+            # sometimes, we don't care what we think we know about something
+            # (this lets us, for example, explore things in hopes of brandy)
+            if memories and random.randint(0, 3) == 0:
+                memories = None
             if memories:
                 memory = pick(memories)
                 picking_up = random.randint(0, 5) == 0
@@ -559,11 +594,9 @@ class Animate(Actor):
                     [self, other, topic.subject])
             else:
                 self.speak_to(other,
-                    "'Please don'tdesired_items shoot!', <1> cried, and handed over <3>",
+                    "'Please don't shoot!', <1> cried",
                     [self, other, found_object])
-                found_object.move_to(other)
-                self.memory[found_object.name] = Memory(found_object, other)
-                other.memory[found_object.name] = Memory(found_object, other)
+                self.give_to(other, found_object)
         elif isinstance(topic, ThreatTellMeTopic):
             memory = self.memory.get(topic.subject.name)
             if not memory:
@@ -572,8 +605,9 @@ class Animate(Actor):
                     [self, other, topic.subject])
             else:
                 self.speak_to(other,
-                    "'Please don't shoot!', <1> cried, 'It's in <3>'",
-                    [self, other, memory.location])
+                    "'Please don't shoot!', <1> cried, '<he-3> <is-3> in <4>'",
+                    [self, other, topic.subject, memory.location])
+                # this is not really a *memory*, btw, it's a *belief*
                 other.memory[topic.subject.name] = \
                   Memory(topic.subject, memory.location)
         elif isinstance(topic, GreetTopic):
@@ -603,14 +637,24 @@ class Animate(Actor):
                         [self, other, self_memory.subject])
                 if choice == 2:
                     if brandy.location == self:
-                        self.emit("<1> poured <him-1>self a glass of brandy and put down the bottle",
+                        self.emit("<1> poured <him-1>self a glass of brandy",
                             [self, other, self_memory.subject])
-                        self.desired_items.remove(brandy)
-                        brandy.move_to(self.location)
-                        self.memory[brandy.name] = Memory(brandy, self.location)
+                        if brandy in self.desired_items:
+                            self.desired_items.remove(brandy)
+                        self.put_down(brandy)
+                    elif self.memory.get(brandy.name):
+                        self.speak_to(other,
+                            "'I really must pour myself a drink,' moaned <1>",
+                            [self, other, self_memory.subject],
+                            subject=brandy)
+                        self.desired_items.add(brandy)
+                        if random.randint(0, 1) == 0:
+                            self.address(other, WhereQuestionTopic(self, subject=brandy),
+                                "'Where did you say <3> was?'",
+                                [self, other, brandy])
                     else:
                         self.address(other, WhereQuestionTopic(self, subject=brandy),
-                            "'Where is the brandy?  I need a drink,' moaned <1>",
+                            "'Where is the brandy?  I need a drink,' managed <1>",
                             [self, other, self_memory.subject])
                         self.desired_items.add(brandy)
                 return
@@ -647,11 +691,9 @@ class Animate(Actor):
                     [self, other, topic.subject])
             elif topic.subject.location == self:
                 self.speak_to(other,
-                    "'I've got <3> right here, <2>.  Here, take it.'",
+                    "'I've got <3> right here, <2>.'",
                     [self, other, topic.subject])
-                topic.subject.move_to(other)
-                self.memory[topic.subject.name] = Memory(topic.subject, other)
-                other.memory[topic.subject.name] = Memory(topic.subject, other)
+                self.put_down(topic.subject)
             else:
                 if topic.subject.location.animate():
                     self.speak_to(other,
@@ -758,6 +800,9 @@ class PluralTreasure(Treasure):
 
     def was(self):
         return "were"
+
+    def is_(self):
+        return "are"
 
 
 class Horror(Actor):

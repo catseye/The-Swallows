@@ -12,10 +12,9 @@ import sys
 
 # World:
 # more reacting to the dead body:
-# - drinking the glass of brandy after pouring it?  (is implied for now)
-# - discussing their ideas of what to do about it
 # - if they *agree*, take one of the courses of action
 # - if they *disagree*, well... the revolver may prove persuasive
+# after agreement:
 # - calling the police (do they have a landline?  it might be entertaining
 #   if they share one mobile phone between the both of them)
 #   - i'll have to introduce a new character... the detective.  yow.
@@ -48,6 +47,10 @@ import sys
 # the event-accumulation framework could use rewriting at some point.
 
 # Diction:
+# eliminate identical duplicate sentences
+# Bob is in the dining room & "Bob made his way to the dining room" ->
+#  "Bob wandered around for a bit, then came back to the dining room"
+# the driveway is not a "room"
 # a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -340,6 +343,7 @@ class Animate(Actor):
         # it is neither a memory, nor a belief, but a judgment, and
         # eventually possibly a goal.
         self.what_to_do_about_the_body = None
+        self.other_decision_about_the_body = None
 
     def animate(self):
         return True
@@ -493,6 +497,13 @@ class Animate(Actor):
         item.move_to(other)
         self.memory[item.name] = Memory(item, other)
         other.memory[item.name] = Memory(item, other)
+
+    def wander(self):
+        self.move_to(
+            self.location.exits[
+                random.randint(0, len(self.location.exits)-1)
+            ]
+        )
 
     def live(self):
         # first, if in a conversation, turn total attention to that
@@ -649,65 +660,8 @@ class Animate(Actor):
             other.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
             self_memory = self.memory.get('dead body')
-            # in general, characters should not be able to read each other's
-            # minds.  however, it's convenient here.  besides, their face would
-            # be pretty easy to read in this circumstance.
-            other_memory = other.memory.get('dead body')
-            if self_memory and not other_memory:
-                self.question(other,
-                   "'Did you know there's <indef-3> in <4>?' asked <1> quickly",
-                   [self, other, self_memory.subject, self_memory.location],
-                   subject=self_memory.subject)
-                return
-            if self_memory and other_memory:
-                choice = random.randint(0, 2)
-                if choice == 0:
-                    self.question(other, "'Do you think we should do something about <3>?' asked <1>",
-                        [self, other, self_memory.subject])
-                if choice == 1:
-                    self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
-                        [self, other, self_memory.subject])
-                if choice == 2:
-                    if self.nerves == 'calm':
-                        # this should probably be affected by whether this
-                        # character has, oh, i don't know, put the other at
-                        # gunpoint yet, or not, or something
-                        if self.what_to_do_about_the_body is None:
-                            if random.randint(0, 1) == 0:
-                                self.what_to_do_about_the_body = 'call'
-                            else:
-                                self.what_to_do_about_the_body = 'dispose'
-                        if self.what_to_do_about_the_body == 'call':
-                            self.speak_to(other, "'I really think we should call the police, <2>,' said <1>",
-                                [self, other, self_memory.subject])
-                        elif self.what_to_do_about_the_body == 'dispose':
-                            self.speak_to(other, "'I think we should try to dispose of <3>, <2>,' said <1>",
-                                [self, other, self_memory.subject])
-                        else:
-                            raise ValueError("damn")
-                    else:
-                        if brandy.location == self:
-                            self.emit("<1> poured <him-1>self a glass of brandy",
-                                [self, other, self_memory.subject])
-                            if brandy in self.desired_items:
-                                self.desired_items.remove(brandy)
-                            self.nerves = 'calm'
-                            self.put_down(brandy)
-                        elif self.memory.get(brandy.name):
-                            self.speak_to(other,
-                                "'I really must pour myself a drink,' moaned <1>",
-                                [self, other, self_memory.subject],
-                                subject=brandy)
-                            self.desired_items.add(brandy)
-                            if random.randint(0, 1) == 0:
-                                self.address(other, WhereQuestionTopic(self, subject=brandy),
-                                    "'Where did you say <3> was?'",
-                                    [self, other, brandy])
-                        else:
-                            self.address(other, WhereQuestionTopic(self, subject=brandy),
-                                "'Where is the brandy?  I need a drink,' managed <1>",
-                                [self, other, self_memory.subject])
-                            self.desired_items.add(brandy)
+            if self_memory:
+                self.discuss(other, self_memory)
                 return
             # this need not be *all* the time
             for x in other.contents:
@@ -775,12 +729,89 @@ class Animate(Actor):
                 #    [self, other, item], subject=item)
                 self.speak_to(other, "'I see, <2>, I see,' said <1>")
 
-    def wander(self):
-        self.move_to(
-            self.location.exits[
-                random.randint(0, len(self.location.exits)-1)
-            ]
-        )
+    # this is its own method for indentation reasons
+    def discuss(self, other, self_memory):
+        # in general, characters should not be able to read each other's
+        # minds.  however, it's convenient here.  besides, their face would
+        # be pretty easy to read in this circumstance.
+        other_memory = other.memory.get(self_memory.subject.name)
+        if self_memory and not other_memory:
+            self.question(other,
+               "'Did you know there's <indef-3> in <4>?' asked <1>",
+               [self, other, self_memory.subject, self_memory.location],
+               subject=self_memory.subject)
+            return
+        if self_memory and other_memory:
+            choice = random.randint(0, 2)
+            if choice == 0:
+                self.question(other, "'Do you think we should do something about <3>?' asked <1>",
+                    [self, other, self_memory.subject])
+            if choice == 1:
+                self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
+                    [self, other, self_memory.subject])
+            if choice == 2:
+                if self.nerves == 'calm':
+                    self.decide_what_to_do_about(other, self_memory.subject)
+                else:
+                    if brandy.location == self:
+                        self.emit("<1> poured <him-1>self a glass of brandy",
+                            [self, other, self_memory.subject])
+                        if brandy in self.desired_items:
+                            self.desired_items.remove(brandy)
+                        self.nerves = 'calm'
+                        self.put_down(brandy)
+                    elif self.memory.get(brandy.name):
+                        self.speak_to(other,
+                            "'I really must pour myself a drink,' moaned <1>",
+                            [self, other, self_memory.subject],
+                            subject=brandy)
+                        self.desired_items.add(brandy)
+                        if random.randint(0, 1) == 0:
+                            self.address(other, WhereQuestionTopic(self, subject=brandy),
+                                "'Where did you say <3> was?'",
+                                [self, other, brandy])
+                    else:
+                        self.address(other, WhereQuestionTopic(self, subject=brandy),
+                            "'Where is the brandy?  I need a drink,' managed <1>",
+                            [self, other, self_memory.subject])
+                        self.desired_items.add(brandy)
+
+    # this is its own method for indentation reasons
+    def decide_what_to_do_about(self, other, thing):
+        # this should probably be affected by whether this
+        # character has, oh, i don't know, put the other at
+        # gunpoint yet, or not, or something
+        if self.what_to_do_about_the_body is None:
+            if random.randint(0, 1) == 0:
+                self.what_to_do_about_the_body = 'call'
+            else:
+                self.what_to_do_about_the_body = 'dispose'
+        if self.other_decision_about_the_body == self.what_to_do_about_the_body:
+            if self.what_to_do_about_the_body == 'call':
+                self.question(other, "'So we're agreed then, we should call the police?' asked <1>",
+                    [self, other, thing])
+                # the other party might not've been aware that they agree
+                other.other_decision_about_the_body = \
+                  self.what_to_do_about_the_body
+            elif self.what_to_do_about_the_body == 'dispose':
+                self.question(other, "'So we're agreed then, we should try to dispose of <3>?' asked <1>",
+                    [self, other, thing])
+                other.other_decision_about_the_body = \
+                  self.what_to_do_about_the_body
+            else:
+                raise ValueError("damn")                            
+        elif self.what_to_do_about_the_body == 'call':
+            self.speak_to(other, "'I really think we should call the police, <2>,' said <1>",
+                [self, other, thing])
+            other.other_decision_about_the_body = \
+              self.what_to_do_about_the_body
+        elif self.what_to_do_about_the_body == 'dispose':
+            self.speak_to(other, "'I think we should try to dispose of <3>, <2>,' said <1>",
+                [self, other, thing])
+            other.other_decision_about_the_body = \
+              self.what_to_do_about_the_body
+        else:
+            raise ValueError("damn")
 
 
 class Male(Animate):
@@ -920,7 +951,9 @@ ALL_ITEMS.extend([falcon, jewels, revolver, brandy])
 
 def dump_memory(actor):
     for key in actor.memory:
-        print ".oO{ %s is in %s }" % (actor.memory[key].subject, actor.memory[key].location)
+        print ".oO{ %s is in %s }" % (
+            actor.memory[key].subject.render([]),
+            actor.memory[key].location.render([]))
         if actor.memory[key].i_hid_it_there:
             print ".oO{ I hid it there }"
 
@@ -963,9 +996,13 @@ for chapter in range(1, 17):
                 if not (alice.location == bob.location):
                     actor.emit("<1> was in <2>", [actor, actor.location])
 
+        actor_order = (alice, bob)
+        # this leads to continuity problems:
+        #if random.randint(0, 1) == 0:
+        #    actor_order = (bob, alice)
         while len(pov_actor.collector.events) < 20:
-            alice.live()
-            bob.live()
+            for actor in actor_order:
+                actor.live()
 
         if friffery:
             if paragraph == 1:
@@ -995,12 +1032,18 @@ for chapter in range(1, 17):
                 print str(event)
             print
             dump_memory(alice)
+            print repr(alice.desired_items)
+            print alice.what_to_do_about_the_body
+            print alice.other_decision_about_the_body
             print
             print "BOB'S POV:"
             for event in bob_collector.events:
                 print str(event)
             print
             dump_memory(bob)
+            print repr(bob.desired_items)
+            print bob.what_to_do_about_the_body
+            print bob.other_decision_about_the_body
             print
             print "- - - - -"
             print

@@ -339,11 +339,12 @@ class Animate(Actor):
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
         self.nerves = 'calm'
-        # this, too, should be more general and sophisticated.
+        # this, too, should be more sophisticated.
         # it is neither a memory, nor a belief, but a judgment, and
         # eventually possibly a goal.
-        self.what_to_do_about_the_body = None
-        self.other_decision_about_the_body = None
+        # hash maps Actors to strings
+        self.what_to_do_about = {}
+        self.other_decision_about = {}
 
     def animate(self):
         return True
@@ -781,35 +782,35 @@ class Animate(Actor):
         # this should probably be affected by whether this
         # character has, oh, i don't know, put the other at
         # gunpoint yet, or not, or something
-        if self.what_to_do_about_the_body is None:
+        if self.what_to_do_about.get(thing) is None:
             if random.randint(0, 1) == 0:
-                self.what_to_do_about_the_body = 'call'
+                self.what_to_do_about[thing] = 'call'
             else:
-                self.what_to_do_about_the_body = 'dispose'
-        if self.other_decision_about_the_body == self.what_to_do_about_the_body:
-            if self.what_to_do_about_the_body == 'call':
+                self.what_to_do_about[thing] = 'dispose'
+        if self.other_decision_about.get(thing, None) == self.what_to_do_about[thing]:
+            if self.what_to_do_about[thing] == 'call':
                 self.question(other, "'So we're agreed then, we should call the police?' asked <1>",
                     [self, other, thing])
                 # the other party might not've been aware that they agree
-                other.other_decision_about_the_body = \
-                  self.what_to_do_about_the_body
-            elif self.what_to_do_about_the_body == 'dispose':
+                other.other_decision_about[thing] = \
+                  self.what_to_do_about[thing]
+            elif self.what_to_do_about[thing] == 'dispose':
                 self.question(other, "'So we're agreed then, we should try to dispose of <3>?' asked <1>",
                     [self, other, thing])
-                other.other_decision_about_the_body = \
-                  self.what_to_do_about_the_body
+                other.other_decision_about[thing] = \
+                  self.what_to_do_about[thing]
             else:
                 raise ValueError("damn")                            
-        elif self.what_to_do_about_the_body == 'call':
+        elif self.what_to_do_about[thing] == 'call':
             self.speak_to(other, "'I really think we should call the police, <2>,' said <1>",
                 [self, other, thing])
-            other.other_decision_about_the_body = \
-              self.what_to_do_about_the_body
-        elif self.what_to_do_about_the_body == 'dispose':
+            other.other_decision_about[thing] = \
+              self.what_to_do_about[thing]
+        elif self.what_to_do_about[thing] == 'dispose':
             self.speak_to(other, "'I think we should try to dispose of <3>, <2>,' said <1>",
                 [self, other, thing])
-            other.other_decision_about_the_body = \
-              self.what_to_do_about_the_body
+            other.other_decision_about[thing] = \
+              self.what_to_do_about[thing]
         else:
             raise ValueError("damn")
 

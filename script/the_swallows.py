@@ -182,12 +182,15 @@ class Actor(object):
             self.move_to(location)
 
     def notable(self):
-        return False
-    
-    def treasure(self):  # impies notable usually
+        return self.treasure() or self.weapon() or self.animate() or self.horror()
+
+    def treasure(self):
         return False
 
-    def horror(self):  # impies notable usually
+    def weapon(self):
+        return False
+
+    def horror(self):
         return False
 
     def takeable(self):
@@ -308,9 +311,6 @@ class Animate(Actor):
         self.memory = {}
 
     def animate(self):
-        return True
-
-    def notable(self):
         return True
 
     def address(self, other, topic, phrase, participants=None):
@@ -434,8 +434,9 @@ class Animate(Actor):
             return self.converse(self.topic)
 
         # otherwise, if there are valuable items here, you *must* pick them up.
+        # TODO: OR IF IT IS AN ITEM YOU ARE LOOKING FOR; SAY, A BOTTLE OF BRANDY
         for x in self.location.contents:
-            if x.notable() and x.takeable():
+            if x.treasure() or x.weapon():
                 self.emit("<1> picked up <2>", [self, x])
                 x.move_to(self)
                 self.memory[x.name] = Memory(x, self)
@@ -464,13 +465,13 @@ class Animate(Actor):
             return self.wander()
         if choice == 20:
             self.emit("<1> yawned", [self])
-        if choice == 21:
+        elif choice == 21:
             self.emit("<1> gazed thoughtfully into the distance", [self])
-        if choice == 22:
+        elif choice == 22:
             self.emit("<1> thought <he-1> heard something", [self])
-        if choice == 23:
+        elif choice == 23:
             self.emit("<1> scratched <his-1> head", [self])
-        if choice == 24:
+        elif choice == 24:
             self.emit("<1> immediately had a feeling something was amiss", [self])
         else:
             return self.wander()
@@ -529,7 +530,8 @@ class Animate(Actor):
             else:  # no memories of this
                 self.emit("<1> searched <2>", [self, container])
                 for thing in container.contents:
-                    if thing.notable() and thing.takeable():
+                    # TODO: OR IF IT IS AN ITEM YOU ARE LOOKING FOR; SAY, A BOTTLE OF BRANDY
+                    if thing.treasure() or thing.weapon():
                         self.emit("<1> found <2> hidden there, and took <him-2>", [self, thing])
                         thing.move_to(self)
                         self.memory[thing.name] = Memory(thing, self)
@@ -602,7 +604,7 @@ class Animate(Actor):
                             "'Where is the brandy?  I need a drink,' moaned <1>",
                             [self, other, self_memory.subject])
                 return
-            # this needs to be not *all* the time
+            # this need not be *all* the time
             for x in other.contents:
                 if x.notable():
                     self.memory[x.name] = Memory(x, other)
@@ -682,9 +684,10 @@ class Item(Actor):
     def takeable(self):
         return True
 
-    def notable(self):
+
+class Weapon(Item):
+    def weapon(self):
         return True
-            
 
 
 class Male(Animate):
@@ -748,9 +751,6 @@ class PluralTreasure(Treasure):
 
 
 class Horror(Actor):
-    def notable(self):
-        return True
-
     def horror(self):
         return True
 
@@ -794,13 +794,13 @@ jewels = PluralTreasure('stolen jewels', garage)
 
 cupboards = Container('cupboards', kitchen)
 liquor_cabinet = Container('liquor cabinet', dining_room)
-brandy = Item('bottle of brandy', liquor_cabinet)
 mailbox = Container('mailbox', driveway)
 
 bobs_bed = Container("bed", bobs_bedroom)
 alices_bed = Container("bed", alices_bedroom)
 
-revolver = Item('revolver', pick([bobs_bed, alices_bed]))
+brandy = Item('bottle of brandy', liquor_cabinet)
+revolver = Weapon('revolver', pick([bobs_bed, alices_bed]))
 dead_body = Horror('dead body', bathroom)
 
 alice = Female('Alice', None)

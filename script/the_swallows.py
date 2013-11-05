@@ -386,9 +386,9 @@ class Animate(Actor):
                     for key in other.memory:
                         memory = other.memory[key]
                         self_memory = self.memory.get(key)
-                        if self_memory and self_memory.i_hid_it_there:
+                        if self_memory:
                             continue
-                        if memory.i_hid_it_there and memory.subject.name != 'revolver':
+                        if memory.i_hid_it_there and memory.subject is not revolver:
                             y = memory.subject
                             self.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
@@ -568,9 +568,15 @@ class Animate(Actor):
                     self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
                         [self, other, self_memory.subject])
                 if choice == 2:
-                    self.address(other, WhereQuestionTopic(self, subject=brandy),
-                        "'Where is the brandy?  I need a drink,' moaned <1>",
-                        [self, other, self_memory.subject])
+                    if brandy.location == self:
+                        self.emit("<1> poured <him-1>self a glass of brandy and put down the bottle",
+                            [self, other, self_memory.subject])
+                        brandy.move_to(self.location)
+                        self.memory[brandy.name] = Memory(brandy, self.location)
+                    else:
+                        self.address(other, WhereQuestionTopic(self, subject=brandy),
+                            "'Where is the brandy?  I need a drink,' moaned <1>",
+                            [self, other, self_memory.subject])
                 return
             # this needs to be not *all* the time
             for x in other.contents:

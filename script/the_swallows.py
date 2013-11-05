@@ -22,11 +22,14 @@ import sys
 # Mechanics:
 # have "needing a drink" be an actual goal.  should it be implemented as a
 #   fancy, extensible Goal object, or just a boolean attribute?
+# have having had the drink actually calm their nerves so they no longer
+#   need a drink
+# ...they check that the brandy is still in the liquor cabinet.  is this
+#   really necessary?
 # the event-accumulation framework probably needs rewriting.  or at least,
 #   more methods on actors need to take account that those actions can be
 #   observed by other actors in the same room, and thus possibly in the
 #   story.  For example, putting down the bottle of brandy.
-# btw, the bottle of brandy
 # certain things can't be taken, but can be dragged (like the body)
 # path-finder between any two rooms -- not too difficult, even if it
 #   would be nicer in Prolog.
@@ -44,8 +47,6 @@ import sys
 # Diction:
 # "Bob went to Bob's bedroom"
 # "...stolen jewels?" "It's in the mailbox!" grammar fail
-# the bottle of brandy is not "hidden" in the liquor cabinet.  it is in
-#   fact what the liquor cabinet is kind of FOR.
 # a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -309,6 +310,7 @@ class Animate(Actor):
         self.topic = None
         # hash of subject's name to a Memory object
         self.memory = {}
+        self.desired_items = set()
 
     def animate(self):
         return True
@@ -433,10 +435,10 @@ class Animate(Actor):
         if self.topic is not None:
             return self.converse(self.topic)
 
-        # otherwise, if there are valuable items here, you *must* pick them up.
-        # TODO: OR IF IT IS AN ITEM YOU ARE LOOKING FOR; SAY, A BOTTLE OF BRANDY
+        # otherwise, if there are items here that you desire, you *must* pick
+        # them up.
         for x in self.location.contents:
-            if x.treasure() or x.weapon():
+            if x.treasure() or x.weapon() or x in self.desired_items:
                 self.emit("<1> picked up <2>", [self, x])
                 x.move_to(self)
                 self.memory[x.name] = Memory(x, self)
@@ -499,6 +501,7 @@ class Animate(Actor):
             return self.wander()
         else:
             # we're looking for treasure!
+            # todo: it would maybe be better to prioritize this selection
             (container, memories) = pick(containers)
             if memories:
                 memory = pick(memories)
@@ -529,12 +532,17 @@ class Animate(Actor):
                         del self.memory[memory.subject.name]
             else:  # no memories of this
                 self.emit("<1> searched <2>", [self, container])
+                desired_things = []
                 for thing in container.contents:
-                    # TODO: OR IF IT IS AN ITEM YOU ARE LOOKING FOR; SAY, A BOTTLE OF BRANDY
-                    if thing.treasure() or thing.weapon():
-                        self.emit("<1> found <2> hidden there, and took <him-2>", [self, thing])
-                        thing.move_to(self)
-                        self.memory[thing.name] = Memory(thing, self)
+                    # remember that you saw it there
+                    self.memory[thing.name] = Memory(thing, container)
+                    if thing.treasure() or thing.weapon() or thing in self.desired_items:
+                        desired_things.append(thing)
+                if desired_things:
+                    thing = pick(desired_things)
+                    self.emit("<1> found <2> there, and took <him-2>", [self, thing])
+                    thing.move_to(self)
+                    self.memory[thing.name] = Memory(thing, self)
 
     def converse(self, topic):
         self.topic = None
@@ -551,7 +559,7 @@ class Animate(Actor):
                     [self, other, topic.subject])
             else:
                 self.speak_to(other,
-                    "'Please don't shoot!', <1> cried, and handed over <3>",
+                    "'Please don'tdesired_items shoot!', <1> cried, and handed over <3>",
                     [self, other, found_object])
                 found_object.move_to(other)
                 self.memory[found_object.name] = Memory(found_object, other)
@@ -597,12 +605,14 @@ class Animate(Actor):
                     if brandy.location == self:
                         self.emit("<1> poured <him-1>self a glass of brandy and put down the bottle",
                             [self, other, self_memory.subject])
+                        self.desired_items.remove(brandy)
                         brandy.move_to(self.location)
                         self.memory[brandy.name] = Memory(brandy, self.location)
                     else:
                         self.address(other, WhereQuestionTopic(self, subject=brandy),
                             "'Where is the brandy?  I need a drink,' moaned <1>",
                             [self, other, self_memory.subject])
+                        self.desired_items.add(brandy)
                 return
             # this need not be *all* the time
             for x in other.contents:

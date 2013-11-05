@@ -42,7 +42,6 @@ import sys
 # the event-accumulation framework could use rewriting at some point.
 
 # Diction:
-# "Bob went to Bob's bedroom"
 # a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -79,7 +78,7 @@ class Event(object):
         phrase = self.phrase
         i = 0
         for participant in self.participants:
-            phrase = phrase.replace('<%d>' % (i + 1), str(participant))
+            phrase = phrase.replace('<%d>' % (i + 1), participant.render(self.participants))
             phrase = phrase.replace('<indef-%d>' % (i + 1), participant.indefinite())
             phrase = phrase.replace('<his-%d>' % (i + 1), participant.posessive())
             phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
@@ -228,11 +227,16 @@ class Actor(object):
         self.location = location
         self.location.contents.append(self)
 
-    def __str__(self):
+    def render(self, participants):
+        name = self.name
+        if participants:
+            subject = participants[0]
+            posessive = subject.name + "'s"
+            name = name.replace(posessive, subject.posessive())
         article = self.article()
         if not article:
-            return self.name
-        return '%s %s' % (article, self.name)
+            return name
+        return '%s %s' % (article, name)
 
     def indefinite(self):
         article = 'a'

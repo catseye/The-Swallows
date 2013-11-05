@@ -42,6 +42,10 @@ def pick(l):
 # this will get filled in later
 ALL_ITEMS = []
 
+# items that the mechanics need to know about; they will be defined later
+revolver = None
+brandy = None
+
 ### EVENTS ###
 
 class Event(object):
@@ -190,7 +194,6 @@ class Actor(object):
         if self.collector:
             self.collector.collect(Event(*args, **kwargs))
 
-    # if self.location is None, this is just an initial move
     def move_to(self, location):
         if self.location:
             self.location.contents.remove(self)
@@ -251,6 +254,10 @@ class SpeechTopic(Topic):
 
 
 class QuestionTopic(Topic):
+    pass
+
+
+class WhereQuestionTopic(Topic):
     pass
 
 
@@ -332,13 +339,6 @@ class Animate(Actor):
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
         
-        # am I carrying the revolver?
-        revolver = None
-        for z in self.contents:
-            if z.name == 'revolver':
-                revolver = z
-                break
-
         # okay, look around you.
         for x in self.location.contents:
             if x == self:
@@ -365,12 +365,14 @@ class Animate(Actor):
                         self.emit(
                             "<1> noticed <2> <was-2> carrying <indef-3>",
                             [self, other, y])
-                        if revolver:
+                        if revolver.location == self:
                             # this should be a ThreatTopic, below should
                             # be a RequestTopic -- er no, maybe not, but
                             # it would be nice if there was some way to
                             # indicate the revolver as part of the Topic
                             self.emit("<1> pointed <3> at <2>",
+                                [self, other, revolver])
+                            other.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
                             self.address(other,
@@ -380,7 +382,7 @@ class Animate(Actor):
                             return
                 # another case of mind-reading.  well, it helps the story advance!
                 # (it would help more to double-check this against your OWN memory)
-                if revolver:
+                if revolver.location == self:
                     for key in other.memory:
                         memory = other.memory[key]
                         self_memory = self.memory.get(key)
@@ -389,6 +391,8 @@ class Animate(Actor):
                         if memory.i_hid_it_there and memory.subject.name != 'revolver':
                             y = memory.subject
                             self.emit("<1> pointed <3> at <2>",
+                                [self, other, revolver])
+                            other.emit("<1> pointed <3> at <2>",
                                 [self, other, revolver])
                             other.memory[revolver.name] = Memory(revolver, self)
                             self.address(other,
@@ -421,11 +425,8 @@ class Animate(Actor):
             if y.treasure():
                 fixated_on = y
                 break
-        if not fixated_on and random.randint(0, 20) == 0:
-            for y in self.contents:
-                if y.name == 'revolver':
-                    fixated_on = y
-                    break
+        if not fixated_on and random.randint(0, 20) == 0 and revolver.location == self:
+            fixated_on = revolver
 
         # check if you are alone
         for x in self.location.contents:
@@ -477,7 +478,7 @@ class Animate(Actor):
             if memories:
                 memory = pick(memories)
                 picking_up = random.randint(0, 5) == 0
-                if memory.subject.name == 'revolver':
+                if memory.subject is revolver:
                     picking_up = True
                 if picking_up:
                     if memory.i_hid_it_there:
@@ -527,6 +528,8 @@ class Animate(Actor):
                     "'Please don't shoot!', <1> cried, and handed over <3>",
                     [self, other, found_object])
                 found_object.move_to(other)
+                self.memory[found_object.name] = Memory(found_object, other)
+                other.memory[found_object.name] = Memory(found_object, other)
         elif isinstance(topic, ThreatTellMeTopic):
             memory = self.memory.get(topic.subject.name)
             if not memory:
@@ -557,13 +560,18 @@ class Animate(Actor):
                    subject=self_memory.subject)
                 return
             if self_memory and other_memory:
-                choice = random.randint(0, 1)
+                choice = random.randint(0, 2)
                 if choice == 0:
                     self.question(other, "'Do you think we should do something about <3>?' asked <1>",
                         [self, other, self_memory.subject])
                 if choice == 1:
                     self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
                         [self, other, self_memory.subject])
+                if choice == 2:
+                    self.address(other, WhereQuestionTopic(self, subject=brandy),
+                        "'Where is the brandy?  I need a drink,' moaned <1>",
+                        [self, other, self_memory.subject])
+                return
             # this needs to be not *all* the time
             for x in other.contents:
                 if x.notable():
@@ -585,6 +593,34 @@ class Animate(Actor):
                     self.speak_to(other, "'Perhaps, <2>,' replied <1>")
             else:
                 self.speak_to(other, "'Perhaps, <2>,' replied <1>")
+        elif isinstance(topic, WhereQuestionTopic):
+            memory = self.memory.get(topic.subject.name)
+            if not memory:
+                self.speak_to(other,
+                    "'I don't know,' <1> answered simply",
+                    [self, other, topic.subject])
+            elif memory.i_hid_it_there:
+                self.question(other,
+                    "'Why do you want to know where <3> is, <2>?'",
+                    [self, other, topic.subject])
+            elif topic.subject.location == self:
+                self.speak_to(other,
+                    "'I've got <3> right here, <2>.  Here, take it.'",
+                    [self, other, topic.subject])
+                topic.subject.move_to(other)
+                self.memory[topic.subject.name] = Memory(topic.subject, other)
+                other.memory[topic.subject.name] = Memory(topic.subject, other)
+            else:
+                if topic.subject.location.animate():
+                    self.speak_to(other,
+                        "'I think <3> has <4>,', <1> recalled",
+                        [self, other, memory.location, topic.subject])
+                else:
+                    self.speak_to(other,
+                        "'I believe it's in <3>, <2>,', <1> recalled",
+                        [self, other, memory.location])
+                other.memory[topic.subject.name] = \
+                  Memory(topic.subject, memory.location)
         elif isinstance(topic, SpeechTopic):
             choice = random.randint(0, 5)
             if choice == 0:
@@ -598,9 +634,11 @@ class Animate(Actor):
             if choice == 4:
                 self.speak_to(other, "'Oh, I know, I know,' said <1>")
             if choice == 5:
-                item = pick(ALL_ITEMS)
-                self.question(other, "'But what about <3>, <2>?' posed <1>",
-                    [self, other, item], subject=item)
+                # -- this is getting really annoying.  disable for now. --
+                # item = pick(ALL_ITEMS)
+                # self.question(other, "'But what about <3>, <2>?' posed <1>",
+                #    [self, other, item], subject=item)
+                self.speak_to(other, "'I see, <2>, I see,' said <1>")
 
     def wander(self):
         self.move_to(
@@ -738,7 +776,7 @@ dead_body = Horror('dead body', bathroom)
 alice = Female('Alice', None)
 bob = Male('Bob', None)
 
-ALL_ITEMS.extend([falcon, jewels, revolver])
+ALL_ITEMS.extend([falcon, jewels, revolver, brandy])
 
 ### util ###
 

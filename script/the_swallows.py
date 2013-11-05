@@ -212,6 +212,10 @@ class ThreatTellMeTopic(Topic):
     pass
 
 
+class ThreatAgreeTopic(Topic):
+    pass
+
+
 ### MEMORIES ###
 
 class Memory(object):
@@ -459,15 +463,7 @@ class Animate(Actor):
                             "<1> noticed <2> <was-2> carrying <indef-3>",
                             [self, other, y])
                         if revolver.location == self:
-                            # this should be a ThreatTopic, below should
-                            # be a RequestTopic -- er no, maybe not, but
-                            # it would be nice if there was some way to
-                            # indicate the revolver as part of the Topic
-                            self.emit("<1> pointed <3> at <2>",
-                                [self, other, revolver])
-                            other.emit("<1> pointed <3> at <2>",
-                                [self, other, revolver])
-                            other.remember(revolver, self)
+                            self.point_at(other, revolver)
                             self.address(other,
                                 ThreatGiveMeTopic(self, subject=y),
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -482,11 +478,7 @@ class Animate(Actor):
                         if self_memory:
                             continue
                         if memory.i_hid_it_there and memory.subject is not revolver:
-                            self.emit("<1> pointed <3> at <2>",
-                                [self, other, revolver])
-                            other.emit("<1> pointed <3> at <2>",
-                                [self, other, revolver])
-                            other.remember(revolver, self)
+                            self.point_at(other, revolver)
                             self.address(other,
                                 ThreatTellMeTopic(self, subject=thing),
                                 "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
@@ -495,6 +487,20 @@ class Animate(Actor):
             elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
                 self.remember(x, self.location)
+
+    def point_at(self, other, item):
+        # it would be nice if there was some way to
+        # indicate the revolver as part of the Topic which will follow,
+        # or otherwise indicate the context as "at gunpoint"
+
+        # XXX SERIOUSLY WE HAVE TO FIX THIS
+        # assert self.location == other.location
+        assert item.location == self
+        self.emit("<1> pointed <3> at <2>",
+            [self, other, item])
+        other.emit("<1> pointed <3> at <2>",
+            [self, other, item])
+        other.remember(item, self)
 
     def put_down(self, item):
         assert(item.location == self)
@@ -684,6 +690,13 @@ class Animate(Actor):
                     [self, other, topic.subject, memory.location])
                 # this is not really a *memory*, btw, it's a *belief*
                 other.remember(topic.subject, memory.location)
+        elif isinstance(topic, ThreatAgreeTopic):
+            decision = self.what_to_do_about[topic.subject]
+            self.speak_to(other,
+               "'You make a persuasive case for remaining undecided, <2>,' said <1>",
+               [self, other])
+            del self.what_to_do_about[topic.subject]
+            del other.other_decision_about[topic.subject]
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
@@ -809,6 +822,10 @@ class Animate(Actor):
 
     # this is its own method for indentation reasons
     def decide_what_to_do_about(self, other, thing):
+        phrase = {
+            'call': 'call the police',
+            'dispose': 'try to dispose of <3>'
+        }
         # this should probably be affected by whether this
         # character has, oh, i don't know, put the other at
         # gunpoint yet, or not, or something
@@ -817,32 +834,36 @@ class Animate(Actor):
                 self.what_to_do_about[thing] = 'call'
             else:
                 self.what_to_do_about[thing] = 'dispose'
+
         if self.other_decision_about.get(thing, None) == self.what_to_do_about[thing]:
-            if self.what_to_do_about[thing] == 'call':
-                self.question(other, "'So we're agreed then, we should call the police?' asked <1>",
+            self.question(other,
+                ("'So we're agreed then, we should %s?' asked <1>" %
+                  phrase[self.what_to_do_about[thing]]),
+                [self, other, thing])
+            # the other party might not've been aware that they agree
+            other.other_decision_about[thing] = \
+              self.what_to_do_about[thing]
+        elif self.other_decision_about.get(thing, None) is not None:
+            # WE DO NOT AGREE.
+            if revolver.location == self:
+                self.point_at(other, revolver)
+                self.address(other,
+                    ThreatAgreeTopic(self, subject=thing),
+                    ("'I really feel *very* strongly that we should %s, <2>,' <he-1> said between clenched teeth" %
+                     phrase[self.what_to_do_about[thing]]),
                     [self, other, thing])
-                # the other party might not've been aware that they agree
-                other.other_decision_about[thing] = \
-                  self.what_to_do_about[thing]
-            elif self.what_to_do_about[thing] == 'dispose':
-                self.question(other, "'So we're agreed then, we should try to dispose of <3>?' asked <1>",
-                    [self, other, thing])
-                other.other_decision_about[thing] = \
-                  self.what_to_do_about[thing]
             else:
-                raise ValueError("damn")                            
-        elif self.what_to_do_about[thing] == 'call':
-            self.speak_to(other, "'I really think we should call the police, <2>,' said <1>",
-                [self, other, thing])
-            other.other_decision_about[thing] = \
-              self.what_to_do_about[thing]
-        elif self.what_to_do_about[thing] == 'dispose':
-            self.speak_to(other, "'I think we should try to dispose of <3>, <2>,' said <1>",
-                [self, other, thing])
-            other.other_decision_about[thing] = \
-              self.what_to_do_about[thing]
+                self.speak_to(other,
+                    ("'I don't think it would be a good idea to %s, <2>,' said <1>" %
+                    phrase[self.other_decision_about[thing]]),
+                    [self, other, thing])
         else:
-            raise ValueError("damn")
+            self.speak_to(other,
+                ("'I really think we should %s, <2>,' said <1>" %
+                     phrase[self.what_to_do_about[thing]]),
+                [self, other, thing])
+            other.other_decision_about[thing] = \
+              self.what_to_do_about[thing]
 
 
 class Male(MasculineMixin, ProperMixin, Animate):
@@ -979,7 +1000,7 @@ def dump_memory(actor):
 
 ### main ###
 
-friffery = False
+FRIFFERY = False
 DEBUG = False
 
 print "Swallows and Sorrows (DRAFT)"
@@ -1024,7 +1045,7 @@ for chapter in range(1, 17):
             for actor in actor_order:
                 actor.live()
 
-        if friffery:
+        if FRIFFERY:
             if paragraph == 1:
                 choice = random.randint(0, 3)
                 if choice == 0:

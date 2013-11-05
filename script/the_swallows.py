@@ -165,7 +165,50 @@ class Editor(object):
             self.events.append(event)
 
 
-### OBJECTS ###
+### TOPICS AND MEMORIES ###
+
+# a "topic" is just what a character has recently had addressed to
+# them.  It could be anything, not just words, by another character
+# (for example, a gesture.)
+
+class Topic(object):
+    def __init__(self, originator, subject=None):
+        self.originator = originator
+        self.subject = subject
+
+
+class GreetTopic(Topic):
+    pass
+
+
+class SpeechTopic(Topic):
+    pass
+
+
+class QuestionTopic(Topic):
+    pass
+
+
+class WhereQuestionTopic(Topic):
+    pass
+
+
+class ThreatGiveMeTopic(Topic):
+    pass
+
+
+class ThreatTellMeTopic(Topic):
+    pass
+
+
+class Memory(object):
+    def __init__(self, subject, location, i_hid_it_there=False):
+        self.subject = subject  # the thing being remembered
+        self.location = location  # where we last remember seeing it
+        self.i_hid_it_there = i_hid_it_there
+
+
+### ACTORS (objects in the world) ###
 
 class Actor(object):
     def __init__(self, name, location, collector=None):
@@ -245,68 +288,35 @@ class Actor(object):
         return '%s %s' % (article, self.name)
 
 
-class Location(Actor):
-    def __init__(self, name, enter="went to"):
-        self.name = name
-        self.enter = enter
-        self.contents = []
-        self.exits = []
+### some mixins for Actors ###
 
-    def set_exits(self, *exits):
-        self.exits = exits
-
-
-class ProperLocation(Location):
+class ProperMixin(object):
     def article(self):
         return ''
 
+
+class PluralMixin(object):
     def posessive(self):
-        return "its"
+        return "their"
 
     def accusative(self):
-        return "it"
+        return "them"
+
+    def pronoun(self):
+        return "they"
+
+    def indefinite(self):
+        article = 'some'
+        return '%s %s' % (article, self.name)
+
+    def was(self):
+        return "were"
+
+    def is_(self):
+        return "are"
 
 
-# a "topic" is just what a character has recently had addressed to
-# them.  It could be anything, not just words, by another character
-# (for example, a gesture.)
-
-class Topic(object):
-    def __init__(self, originator, subject=None):
-        self.originator = originator
-        self.subject = subject
-
-
-class GreetTopic(Topic):
-    pass
-
-
-class SpeechTopic(Topic):
-    pass
-
-
-class QuestionTopic(Topic):
-    pass
-
-
-class WhereQuestionTopic(Topic):
-    pass
-
-
-class ThreatGiveMeTopic(Topic):
-    pass
-
-
-class ThreatTellMeTopic(Topic):
-    pass
-
-
-class Memory(object):
-    def __init__(self, subject, location, i_hid_it_there=False):
-        self.subject = subject  # the thing being remembered
-        self.location = location  # where we last remember seeing it
-        self.i_hid_it_there = i_hid_it_there
-
+### ANIMATE OBJECTS ###
 
 class Animate(Actor):
     def __init__(self, name, location, collector=None):
@@ -736,16 +746,6 @@ class Animate(Actor):
         )
 
 
-class Item(Actor):
-    def takeable(self):
-        return True
-
-
-class Weapon(Item):
-    def weapon(self):
-        return True
-
-
 class Male(Animate):
     def article(self):
         return ''
@@ -774,9 +774,42 @@ class Female(Animate):
         return "she"
 
 
+### LOCATIONS ###
+
+class Location(Actor):
+    def __init__(self, name, enter="went to"):
+        self.name = name
+        self.enter = enter
+        self.contents = []
+        self.exits = []
+
+    def set_exits(self, *exits):
+        self.exits = exits
+
+
+class ProperLocation(ProperMixin, Location):
+    pass
+
+
+### OTHER INANIMATE OBJECTS ###
+
+class Item(Actor):
+    def takeable(self):
+        return True
+
+
+class Weapon(Item):
+    def weapon(self):
+        return True
+
+
 class Container(Actor):
     def container(self):
         return True
+
+
+class ProperContainer(ProperMixin, Container):
+    pass
 
 
 class Treasure(Item):
@@ -784,29 +817,8 @@ class Treasure(Item):
         return True
 
 
-# TODO Plural should really be a mixin.
-class PluralTreasure(Treasure):
-    def article(self):
-        return 'the'
-
-    def posessive(self):
-        return "their"
-
-    def accusative(self):
-        return "them"
-
-    def pronoun(self):
-        return "they"
-
-    def indefinite(self):
-        article = 'some'
-        return '%s %s' % (article, self.name)
-
-    def was(self):
-        return "were"
-
-    def is_(self):
-        return "are"
+class PluralTreasure(PluralMixin, Treasure):
+    pass
 
 
 class Horror(Actor):
@@ -855,8 +867,8 @@ cupboards = Container('cupboards', kitchen)
 liquor_cabinet = Container('liquor cabinet', dining_room)
 mailbox = Container('mailbox', driveway)
 
-bobs_bed = Container("bed", bobs_bedroom)
-alices_bed = Container("bed", alices_bedroom)
+bobs_bed = ProperContainer("Bob's bed", bobs_bedroom)
+alices_bed = ProperContainer("Alice's bed", alices_bedroom)
 
 brandy = Item('bottle of brandy', liquor_cabinet)
 revolver = Weapon('revolver', pick([bobs_bed, alices_bed]))

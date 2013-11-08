@@ -1003,8 +1003,8 @@ def dump_memory(actor):
 FRIFFERY = False
 DEBUG = False
 
-print "Swallows and Sorrows (DRAFT)"
-print "============================"
+print "Swallows and Sorrows"
+print "===================="
 print
 
 for chapter in range(1, 17):

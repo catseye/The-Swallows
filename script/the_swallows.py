@@ -22,6 +22,6 @@ publisher = Publisher(
     setting=house,
     title="Title TBD (Book Four of _The Swallows_ series)",
     debug=True,
-    chapters=1,
+    #chapters=1,
 )
 publisher.publish()

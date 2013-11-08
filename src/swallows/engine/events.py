@@ -260,36 +260,51 @@ class Editor(object):
 
     """
  
-    # we could do this randomly...
-    #pov_actor = pick([alice, bob])
-    # but, we could also alternate.  They ARE Alice and Bob, after all.
-    #pov_actor = (alice, bob)[(paragraph - 1) % 2]
-
     def __init__(self, collector, main_characters):
-        self.collector = collector
+        self.events = list(reversed(collector.events))
         self.main_characters = main_characters
-        self.sentences = 0
+        self.pov_index = 0
 
     def publish(self):
-        for event in self.collector.events:
-            self.consume(event)
+        # yoiks.  i have very little idea what I'm doing
+        # XXX this gets duplicates because we are producing duplicates in
+        # the engine because the engine assumes each actor has its own
+        # event collector which is no longer the case.
+        # XXX fix for now by deduping the event stream... somewhere...
+        while len(self.events) > 0:
+            pov_actor = self.main_characters[self.pov_index]
+            self.publish_paragraph(pov_actor)
+            self.pov_index += 1
+            if self.pov_index >= len(self.main_characters):
+                self.pov_index = 0
 
-    def consume(self, event):
+    def publish_paragraph(self, pov_actor):
+        sentences_to_go = 10
+        while sentences_to_go > 0 and len(self.events) > 0:
+            event = self.events.pop()
+            sentences_produced = self.consume(event, pov_actor)
+            sentences_to_go -= sentences_produced
+        print
+        print
+
+    def consume(self, event, pov_actor):
+        """Returns how many sentences it produced.
+
+        """
         if True:  # debug
             print "%r in %s: %s" % (
                 [p.render([]) for p in event.participants],
                 event.location.render([]),
                 event.phrase
             )
+            return 1
         else:
-            if event.participants[0].name == 'Bob':
+            if event.participants[0] is pov_actor:
                 sys.stdout.write(str(event) + "  ")
-                #sys.stdout.write("\n")
-                self.sentences += 1
-                if self.sentences > 20:  # random.randint(8, 18):
-                    self.sentences = 0
-                    print
-                    print
+                sys.stdout.write("\n")
+                return 1
+            else:
+                return 0
 
 
 class Publisher(object):
@@ -300,7 +315,7 @@ class Publisher(object):
         self.debug = kwargs.get('debug', False)
         self.title = kwargs.get('title', "Untitled")
         self.chapters = kwargs.get('chapters', 16)
-        self.events_per_chapter = kwargs.get('events_per_chapter', 25)
+        self.events_per_chapter = kwargs.get('events_per_chapter', 50)
 
     def publish_chapter(self, chapter_num):
 

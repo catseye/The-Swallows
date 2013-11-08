@@ -8,14 +8,18 @@
 from os.path import realpath, dirname, join
 import sys
 
-# get the src/ directory onto the Python module search path
+# get the ../src/ directory onto the Python module search path
 sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
 # now we can:
 from swallows.world import alice, bob, house
-from swallows.objects import pick, EventCollector, Editor
+from swallows.util import pick
+from swallows.events import EventCollector, Editor
 
 # this is not good.  but it works.
+# better options would be:
+# - define the world-specific behaviour of the characters in swallows.world
+# - (less better) have alice & bob take these objects as dependency injections
 import swallows.objects
 import swallows.world
 swallows.objects.revolver = swallows.world.revolver
@@ -96,13 +100,13 @@ for chapter in range(1, 17):
             for event in alice_collector.events:
                 print str(event)
             print
-            dump_memory(alice)
+            alice.dump_memory()
             print
             print "BOB'S POV:"
             for event in bob_collector.events:
                 print str(event)
             print
-            dump_memory(bob)
+            bob.dump_memory()
             print
             print "- - - - -"
             print

@@ -23,14 +23,6 @@ from swallows.util import pick
 #   in their lives?)
 # bullets for the revolver
 
-# this will get filled in later
-ALL_ITEMS = []
-
-# items that the mechanics need to know about; they will be defined later
-revolver = None
-brandy = None
-dead_body = None
-
 ### world ###
 
 kitchen = Location('kitchen')
@@ -65,21 +57,21 @@ house = (kitchen, living_room, dining_room, front_hall, driveway, garage,
          upstairs_hall, bobs_bedroom, alices_bedroom, study, bathroom,
          path_by_the_shed, shed)
 
-falcon = Treasure('golden falcon', dining_room)
-jewels = PluralTreasure('stolen jewels', garage)
+falcon = Treasure('golden falcon', location=dining_room)
+jewels = PluralTreasure('stolen jewels', location=garage)
 
-cupboards = Container('cupboards', kitchen)
-liquor_cabinet = Container('liquor cabinet', dining_room)
-mailbox = Container('mailbox', driveway)
+cupboards = Container('cupboards', location=kitchen)
+liquor_cabinet = Container('liquor cabinet', location=dining_room)
+mailbox = Container('mailbox', location=driveway)
 
-bobs_bed = ProperContainer("Bob's bed", bobs_bedroom)
-alices_bed = ProperContainer("Alice's bed", alices_bedroom)
+bobs_bed = ProperContainer("Bob's bed", location=bobs_bedroom)
+alices_bed = ProperContainer("Alice's bed", location=alices_bedroom)
 
-brandy = Item('bottle of brandy', liquor_cabinet)
-revolver = Weapon('revolver', pick([bobs_bed, alices_bed]))
-dead_body = Horror('dead body', bathroom)
+brandy = Item('bottle of brandy', location=liquor_cabinet)
+revolver = Weapon('revolver', location=pick([bobs_bed, alices_bed]))
+dead_body = Horror('dead body', location=bathroom)
 
-alice = Female('Alice', None)
-bob = Male('Bob', None)
+alice = Female('Alice')
+bob = Male('Bob')
 
-ALL_ITEMS.extend([falcon, jewels, revolver, brandy])
+ALL_ITEMS = (falcon, jewels, revolver, brandy)

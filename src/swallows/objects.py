@@ -28,15 +28,6 @@ from swallows.util import pick
 #   pistol instead, as those can jam more easily)
 # dear me, someone might actually get shot.  then what?  another dead body?
 
-
-# this will get filled in later
-ALL_ITEMS = []
-
-# items that the mechanics need to know about; they will be defined later
-revolver = None
-brandy = None
-dead_body = None
-
 ### TOPICS ###
 
 # a "topic" is just what a character has recently had addressed to
@@ -89,10 +80,9 @@ class Memory(object):
 ### ACTORS (objects in the world) ###
 
 class Actor(object):
-    def __init__(self, name, location, collector=None):
+    def __init__(self, name, location=None, collector=None):
         self.name = name
         self.collector = collector
-        self.location = None
         self.contents = []
         self.enter = ""
         self.location = None
@@ -179,6 +169,16 @@ class Actor(object):
         print "knowledge of others' decisions:", repr(self.other_decision_about)
 
 
+### unfortunate externals ###
+
+# items that the mechanics need to know about; they are defined "for reals"
+# in swallows.world, which may not even be used, so for now we make stand-in
+# dummy objects for them
+revolver = Actor('non-existent revolver')
+brandy = Actor('non-existent brandy')
+dead_body = Actor('non-existent dead body')
+
+
 ### some mixins for Actors ###
 
 class ProperMixin(object):
@@ -232,8 +232,8 @@ class FeminineMixin(object):
 ### ANIMATE OBJECTS ###
 
 class Animate(Actor):
-    def __init__(self, name, location, collector=None):
-        Actor.__init__(self, name, location, collector=None)
+    def __init__(self, name, location=None, collector=None):
+        Actor.__init__(self, name, location=location, collector=None)
         self.topic = None
         # hash of actor object to Memory object
         self.memories = {}
@@ -762,6 +762,8 @@ class Location(Actor):
         return self.noun_
 
     def set_exits(self, *exits):
+        for exit in exits:
+            assert isinstance(exit, Location)
         self.exits = exits
 
 

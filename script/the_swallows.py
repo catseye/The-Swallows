@@ -81,10 +81,27 @@ dead_body = None
 
 class Event(object):
     def __init__(self, phrase, participants, excl=False):
+        """participants[0] is always the initiator, and we
+        record the location that the event was initiated in.
+
+        For now, we assume such an event can be:
+        - observed by every actor at that location
+        - affects only actors at that location
+
+        In the future, we *may* have:
+        - active and passive participants
+        - active participants all must be present at the location
+        - passive participants need not be
+
+        """
         self.phrase = phrase
         self.participants = participants
+        self.location = participants[0].location
         self.excl = excl
-    
+
+    def initiator(self):
+        return self.participants[0]
+
     def __str__(self):
         phrase = self.phrase
         i = 0
@@ -1003,8 +1020,8 @@ def dump_memory(actor):
 FRIFFERY = False
 DEBUG = False
 
-print "Swallows and Sorrows"
-print "===================="
+print "Title TBD (Book Four of _The Swallows_ series)"
+print "=============================================="
 print
 
 for chapter in range(1, 17):

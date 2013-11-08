@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+#
+# the_swallows.py: a novel generator.
+# Chris Pressey, Cat's Eye Technologies
+#
+
 from os.path import realpath, dirname, join
 import sys
 
@@ -7,7 +12,15 @@ import sys
 sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
 # now we can:
-from swallows.objects import alice, bob, pick, house, EventCollector, Editor
+from swallows.world import alice, bob, house
+from swallows.objects import pick, EventCollector, Editor
+
+# this is not good.  but it works.
+import swallows.objects
+import swallows.world
+swallows.objects.revolver = swallows.world.revolver
+swallows.objects.brandy = swallows.world.brandy
+swallows.objects.dead_body = swallows.world.dead_body
 
 ### main ###
 

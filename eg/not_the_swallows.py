@@ -12,8 +12,8 @@ import sys
 sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
 # now we can:
-from swallows.events import LegacyPublisher
-from swallows.objects import Location, ProperLocation, Male, Female
+from swallows.engine.events import LegacyPublisher
+from swallows.engine.objects import Location, ProperLocation, Male, Female
 
 ### world ###
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from swallows.objects import (
+from swallows.engine.objects import (
     Location, ProperLocation, Treasure, PluralTreasure,
     Container, ProperContainer,
     Item, Weapon, Horror, Male, Female

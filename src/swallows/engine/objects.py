@@ -3,7 +3,7 @@
 import random
 import sys
 
-from swallows.events import Event
+from swallows.engine.events import Event
 from swallows.util import pick
 
 # TODO

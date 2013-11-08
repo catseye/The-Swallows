@@ -152,9 +152,8 @@ class LegacyPublisher(object):
 
     """
     def __init__(self, **kwargs):
-        self.alice = kwargs.get('alice')
-        self.bob = kwargs.get('bob')
-        self.house = kwargs.get('house')
+        self.characters = kwargs.get('characters')
+        self.setting = kwargs.get('setting')
         self.friffery = kwargs.get('friffery', False)
         self.debug = kwargs.get('debug', False)
         self.title = kwargs.get('title', "Untitled")
@@ -166,48 +165,35 @@ class LegacyPublisher(object):
         print "=" * len(self.title)
         print
 
-        alice = self.alice
-        bob = self.bob
-        house = self.house
-
         for chapter in range(1, self.chapters+1):
             print "Chapter %d." % chapter
             print "-----------"
             print
-        
-            alice_collector = EventCollector()
-            bob_collector = EventCollector()
-            # don't continue a conversation from the previous chapter, please
-            alice.topic = None
-            bob.topic = None
-            alice.location = None
-            bob.location = None
+
+            for character in self.characters:
+                # don't continue a conversation from the previous chapter, please
+                character.topic = None
+                character.location = None
         
             for paragraph in range(1, self.paragraphs_per_chapter+1):
-                alice.collector = alice_collector
-                bob.collector = bob_collector
-                
-                # we could do this randomly...
-                #pov_actor = pick([alice, bob])
-                # but, we could also alternate.  They ARE Alice and Bob, after all.
-                pov_actor = (alice, bob)[(paragraph - 1) % 2]
-        
-                for actor in (alice, bob):
+                for character in self.characters:
+                    character.collector = EventCollector()
+
+                # we alternate pov like so:
+                pov_actor = (self.characters)[(paragraph - 1) % len(self.characters)]
+
+                for actor in self.characters:
                     if actor.location is None:
-                        actor.place_in(pick(house))
+                        actor.place_in(pick(self.setting))
                     else:
                         # this is hacky & won't work for >2 characters:
-                        if not (alice.location == bob.location):
+                        if self.characters[0].location is not self.characters[1].location:
                             actor.emit("<1> was in <2>", [actor, actor.location])
-        
-                actor_order = (alice, bob)
-                # this leads to continuity problems:
-                #if random.randint(0, 1) == 0:
-                #    actor_order = (bob, alice)
+
                 while len(pov_actor.collector.events) < 20:
-                    for actor in actor_order:
+                    for actor in self.characters:
                         actor.live()
-        
+
                 if self.friffery:
                     if paragraph == 1:
                         choice = random.randint(0, 3)
@@ -231,18 +217,13 @@ class LegacyPublisher(object):
                             sys.stdout.write("Feeling anxious, ")
         
                 if self.debug:
-                    print "ALICE'S POV:"
-                    for event in alice_collector.events:
-                        print str(event)
-                    print
-                    alice.dump_memory()
-                    print
-                    print "BOB'S POV:"
-                    for event in bob_collector.events:
-                        print str(event)
-                    print
-                    bob.dump_memory()
-                    print
+                    for character in self.characters:
+                        print "%s'S POV:" % character.name.upper()
+                        for event in character.collector.events:
+                            print str(event)
+                        print
+                        character.dump_memory()
+                        print
                     print "- - - - -"
                     print
         
@@ -255,6 +236,3 @@ class LegacyPublisher(object):
                         #sys.stdout.write("\n")
                     print
                     print
-        
-                alice_collector.events = []
-                bob_collector.events = []

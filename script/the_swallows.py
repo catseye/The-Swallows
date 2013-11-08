@@ -27,9 +27,12 @@ swallows.objects.dead_body = swallows.world.dead_body
 ### main ###
 
 publisher = LegacyPublisher(
-    alice=swallows.world.alice,
-    bob=swallows.world.bob,
-    house=swallows.world.house,
+    characters=(
+        swallows.world.alice,
+        swallows.world.bob,
+    ),
+    setting=swallows.world.house,
     title="Title TBD (Book Four of _The Swallows_ series)",
+    #debug=True,
 )
 publisher.publish()

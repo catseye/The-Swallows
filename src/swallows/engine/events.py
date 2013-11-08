@@ -300,7 +300,7 @@ class Publisher(object):
         self.debug = kwargs.get('debug', False)
         self.title = kwargs.get('title', "Untitled")
         self.chapters = kwargs.get('chapters', 16)
-        #self.paragraphs_per_chapter = kwargs.get('paragraphs_per_chapter', 25)
+        self.events_per_chapter = kwargs.get('events_per_chapter', 25)
 
     def publish_chapter(self, chapter_num):
 
@@ -313,24 +313,24 @@ class Publisher(object):
             actor.location = None
             actor.place_in(pick(self.setting))
 
-        while len(collector.events) < 400:
+        while len(collector.events) < self.events_per_chapter:
             for actor in self.characters:
                 actor.live()
                 #print len(collector.events) # , repr([str(e) for e in collector.events])
 
-                if self.debug:
-                    for character in self.characters:
-                        print "%s'S POV:" % character.name.upper()
-                        for event in character.collector.events:
-                            print str(event)
-                        print
-                        character.dump_memory()
-                        print
-                    print "- - - - -"
-                    print
-                else:
-                    editor = Editor(collector, self.characters)
-                    editor.publish()
+        if self.debug:
+            for character in self.characters:
+                print "%s'S POV:" % character.name.upper()
+                for event in character.collector.events:
+                    print str(event)
+                print
+                character.dump_memory()
+                print
+            print "- - - - -"
+            print
+        else:
+            editor = Editor(collector, self.characters)
+            editor.publish()
 
     def publish(self):
         print self.title

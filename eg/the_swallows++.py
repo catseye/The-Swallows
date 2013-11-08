@@ -12,30 +12,33 @@ sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
 # now we can:
 from swallows.engine.events import LegacyPublisher
-from swallows.engine.objects import Male
+from swallows.story.characters import MaleCharacter
+from swallows.story.world import (
+    alice, bob, house,
+    revolver, brandy, dead_body
+)
 
-# the following is not good.  but it works.
-# better options would be:
-# - define the world-specific behaviour of the characters in swallows.world
-# - (less better) have alice & bob take these objects as dependency injections
-import swallows.engine.objects
-import swallows.story.world
-swallows.engine.objects.revolver = swallows.story.world.revolver
-swallows.engine.objects.brandy = swallows.story.world.brandy
-swallows.engine.objects.dead_body = swallows.story.world.dead_body
-
-# we extend it by adding a new character
-fred = Male('Fred')
+# we extend the world of The Swallows by adding a new character.
+# note that we have to inform the new character of certain important objects
+# in the world are, so that he can react sensibly to them.
+# (you *can* pass other objects here, for example 'revolver=brandy', in which
+# case the character will act fairly nonsensibly, threatening other characters
+# with the bottle of brandy and so forth)
+fred = MaleCharacter('Fred',
+    revolver=revolver,
+    brandy=brandy,
+    dead_body=dead_body,
+)
 
 ### main ###
 
 publisher = LegacyPublisher(
     characters=(
-        swallows.story.world.alice,
-        swallows.story.world.bob,
-        fred
+        alice,
+        bob,
+        fred,
     ),
-    setting=swallows.story.world.house,
+    setting=house,
     title="My _The Swallows_ Fanfic",
     #debug=True,
 )

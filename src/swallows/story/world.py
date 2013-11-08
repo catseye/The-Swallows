@@ -3,8 +3,9 @@
 from swallows.engine.objects import (
     Location, ProperLocation, Treasure, PluralTreasure,
     Container, ProperContainer,
-    Item, Weapon, Horror, Male, Female
+    Item, Weapon, Horror
 )
+from swallows.story.characters import MaleCharacter, FemaleCharacter
 from swallows.util import pick
 
 # TODO
@@ -12,7 +13,6 @@ from swallows.util import pick
 # World:
 # more reacting to the dead body:
 # - if they *agree*, take one of the courses of action
-# - if they *disagree*, well... the revolver may prove persuasive
 # after agreement:
 # - calling the police (do they have a landline?  it might be entertaining
 #   if they share one mobile phone between the both of them)
@@ -71,7 +71,17 @@ brandy = Item('bottle of brandy', location=liquor_cabinet)
 revolver = Weapon('revolver', location=pick([bobs_bed, alices_bed]))
 dead_body = Horror('dead body', location=bathroom)
 
-alice = Female('Alice')
-bob = Male('Bob')
+# when making alice and bob, we let them recognize certain important
+# objects in their world
+alice = FemaleCharacter('Alice',
+    revolver=revolver,
+    brandy=brandy,
+    dead_body=dead_body,
+)
+bob = MaleCharacter('Bob',
+    revolver=revolver,
+    brandy=brandy,
+    dead_body=dead_body,
+)
 
 ALL_ITEMS = (falcon, jewels, revolver, brandy)

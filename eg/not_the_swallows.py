@@ -29,8 +29,12 @@ candlestick_factory.set_exits(main_street)
 
 downtown = (main_street, butchers, bakery, candlestick_factory)
 
-tweedledee = Male('Tweedledee')
-tweedledum = Male('Tweedledum')
+class Tweedle(Male):
+    def live(self):
+        self.wander()
+
+tweedledee = Tweedle('Tweedledee')
+tweedledum = Tweedle('Tweedledum')
 
 ### main ###
 

@@ -80,6 +80,7 @@ class EventCollector(object):
         self.events.append(event)
 
 
+# not really needed, as emit() does nothing if there is no collector
 class Oblivion(EventCollector):
     def collect(self, event):
         pass
@@ -91,9 +92,10 @@ oblivion = Oblivion()
 # 'diction engine' -- almost exactly like a peephole optimizer -- convert
 #   "Bob went to the shed.  Bob saw Alice." into
 #   "Bob went to the shed, where he saw Alice."
+# btw, it doesn't do that exact example yet.
 # btw, we currently get a new editor for every paragraph
 class LegacyEditor(object):
-    """The Editor is remarkably similar to the _peephole optimizer_ in
+    """The LegacyEditor is remarkably similar to the _peephole optimizer_ in
     compiler construction.  Instead of replacing sequences of instructions
     with more efficient but semantically equivalent sequences of
     instructions, it replaces sequences of sentences with more readable
@@ -236,3 +238,108 @@ class LegacyPublisher(object):
                         #sys.stdout.write("\n")
                     print
                     print
+
+
+### the new stuff ###
+
+class Editor(object):
+    """The Editor is remarkably similar to the _peephole optimizer_ in
+    compiler construction.  Instead of replacing sequences of instructions
+    with more efficient but semantically equivalent sequences of
+    instructions, it replaces sequences of sentences with more readable
+    but semantically equivalent sequences of sentences.
+
+    The Editor is also responsible for chopping up the sequence of
+    sentences into "sensible" paragraphs.  (This might be like a compiler
+    code-rewriting pass that inserts NOPs to ensure instructions are on a
+    word boundary, or some such.)
+    
+    The Editor is also responsible for picking which character to
+    follow.  (I don't think there's a compiler construction analogy for
+    that.)
+
+    """
+ 
+    # we could do this randomly...
+    #pov_actor = pick([alice, bob])
+    # but, we could also alternate.  They ARE Alice and Bob, after all.
+    #pov_actor = (alice, bob)[(paragraph - 1) % 2]
+
+    def __init__(self, collector, main_characters):
+        self.collector = collector
+        self.main_characters = main_characters
+        self.sentences = 0
+
+    def publish(self):
+        for event in self.collector.events:
+            self.consume(event)
+
+    def consume(self, event):
+        if True:  # debug
+            print "%r in %s: %s" % (
+                [p.render([]) for p in event.participants],
+                event.location.render([]),
+                event.phrase
+            )
+        else:
+            if event.participants[0].name == 'Bob':
+                sys.stdout.write(str(event) + "  ")
+                #sys.stdout.write("\n")
+                self.sentences += 1
+                if self.sentences > 20:  # random.randint(8, 18):
+                    self.sentences = 0
+                    print
+                    print
+
+
+class Publisher(object):
+    def __init__(self, **kwargs):
+        self.characters = kwargs.get('characters')
+        self.setting = kwargs.get('setting')
+        self.friffery = kwargs.get('friffery', False)
+        self.debug = kwargs.get('debug', False)
+        self.title = kwargs.get('title', "Untitled")
+        self.chapters = kwargs.get('chapters', 16)
+        #self.paragraphs_per_chapter = kwargs.get('paragraphs_per_chapter', 25)
+
+    def publish_chapter(self, chapter_num):
+
+        collector = EventCollector()
+        
+        for actor in self.characters:
+            actor.collector = collector
+            # don't continue a conversation from the previous chapter, please
+            actor.topic = None
+            actor.location = None
+            actor.place_in(pick(self.setting))
+
+        while len(collector.events) < 400:
+            for actor in self.characters:
+                actor.live()
+                #print len(collector.events) # , repr([str(e) for e in collector.events])
+
+                if self.debug:
+                    for character in self.characters:
+                        print "%s'S POV:" % character.name.upper()
+                        for event in character.collector.events:
+                            print str(event)
+                        print
+                        character.dump_memory()
+                        print
+                    print "- - - - -"
+                    print
+                else:
+                    editor = Editor(collector, self.characters)
+                    editor.publish()
+
+    def publish(self):
+        print self.title
+        print "=" * len(self.title)
+        print
+
+        for chapter in range(1, self.chapters+1):
+            print "Chapter %d." % chapter
+            print "-----------"
+            print
+
+            self.publish_chapter(chapter)

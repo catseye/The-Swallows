@@ -285,49 +285,39 @@ class Editor(object):
     def publish(self):
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
-            self.publish_paragraph(pov_actor)
+            paragraph_events = self.generate_paragraph_events(pov_actor)
+            self.publish_paragraph(paragraph_events)
             self.pov_index += 1
             if self.pov_index >= len(self.main_characters):
                 self.pov_index = 0
 
-    def publish_paragraph(self, pov_actor):
-        sentences_to_go = random.randint(10, 25)  # RANDOMIZE THIS
-
-        recent_events = []
-
-        while sentences_to_go > 0 and len(self.events) > 0:
+    def generate_paragraph_events(self, pov_actor):
+        quota = random.randint(10, 25)
+        paragraph_events = []
+        while len(paragraph_events) < quota and len(self.events) > 0:
             event = self.events.pop()
-
             # optimize
-            if recent_events:
-                last_character = recent_events[-1].participants[0]
+            if paragraph_events:
+                last_character = paragraph_events[-1].participants[0]
                 if event.participants[0] == last_character:
+                    # replace repeated proper nouns with pronouns
                     if event.phrase.startswith('<1>'):
                         event.phrase = '<he-1>' + event.phrase[3:]
 
-            sentences_produced = self.consume(event, pov_actor)
+            # update our idea of where the character is, even if these are
+            # not events we will be dumping out
+            self.character_location[event.participants[0]] = event.location
             
-            if sentences_produced > 0:
-                recent_events.append(event)
+            if event.location == self.character_location[pov_actor]:
+                paragraph_events.append(event)
+        return paragraph_events
 
-            sentences_to_go -= sentences_produced
-        print
-        print
-
-    def consume(self, event, pov_actor):
-        """Returns how many sentences it produced.
-
-        """
-        # update our idea of where the character is, even if these are
-        # not events we will be dumping out
-        self.character_location[event.participants[0]] = event.location
-
-        if event.location == self.character_location[pov_actor]:
+    def publish_paragraph(self, paragraph_events):
+        for event in paragraph_events:
             sys.stdout.write(str(event) + "  ")
             #sys.stdout.write("\n")
-            return 1
-        else:
-            return 0
+        print
+        print
 
 
 class Publisher(object):

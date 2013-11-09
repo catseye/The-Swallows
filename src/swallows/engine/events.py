@@ -99,8 +99,7 @@ class Oblivion(EventCollector):
 oblivion = Oblivion()
 
 
-### the new stuff ###
-
+### EDITOR AND PUBLISHER ###
 
 class Editor(object):
     """The Editor is remarkably similar to the _peephole optimizer_ in
@@ -207,14 +206,16 @@ class Editor(object):
 
 
 class Publisher(object):
-    def __init__(self, **kwargs):
-        self.characters = kwargs.get('characters')
-        self.setting = kwargs.get('setting')
-        self.friffery = kwargs.get('friffery', False)
-        self.debug = kwargs.get('debug', False)
-        self.title = kwargs.get('title', "Untitled")
-        self.chapters = kwargs.get('chapters', 18)
-        self.events_per_chapter = kwargs.get('events_per_chapter', 810)
+    def __init__(self, characters=(), setting=(), friffery=False,
+                 debug=False, title='Untitled', chapters=18,
+                 events_per_chapter=810):
+        self.characters = characters
+        self.setting = setting
+        self.friffery = friffery
+        self.debug = debug
+        self.title = title
+        self.chapters = chapters
+        self.events_per_chapter = events_per_chapter
 
     def publish_chapter(self, chapter_num):
         collector = EventCollector()

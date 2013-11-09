@@ -43,6 +43,8 @@ class Event(object):
         - active and passive participants
         - active participants all must be present at the location
         - passive participants need not be
+        (probably done by passing a number n: the first n
+        participants are to be considered active)
 
         """
         self.phrase = phrase
@@ -79,6 +81,19 @@ class EventCollector(object):
     def collect(self, event):
         self.events.append(event)
 
+    def dedup(self):
+        """Modifies the sequence of events so that the same event
+        does not occur multiple times in a row.
+
+        """
+        if len(self.events) <= 1:
+            return
+        events = [self.events[0]]
+        for event in self.events[1:]:
+            if str(event) != str(events[-1]):
+                events.append(event)
+        self.events = events
+        
 
 # not really needed, as emit() does nothing if there is no collector
 class Oblivion(EventCollector):
@@ -261,6 +276,10 @@ class Editor(object):
     """
  
     def __init__(self, collector, main_characters):
+        # This dedup'ing is temporary.
+        # Eventually, we will dedup at the source (the Actors which
+        # are currently producing redundant events.)
+        collector.dedup()
         self.events = list(reversed(collector.events))
         self.main_characters = main_characters
         self.pov_index = 0
@@ -291,7 +310,7 @@ class Editor(object):
         """Returns how many sentences it produced.
 
         """
-        if True:  # debug
+        if False:  # debug
             print "%r in %s: %s" % (
                 [p.render([]) for p in event.participants],
                 event.location.render([]),

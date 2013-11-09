@@ -21,7 +21,7 @@ publisher = Publisher(
     characters=(alice, bob),
     setting=house,
     title="Title TBD (Book Four of _The Swallows_ series)",
-    debug=True,
+    #debug=True,
     #chapters=1,
 )
 publisher.publish()

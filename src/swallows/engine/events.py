@@ -276,11 +276,10 @@ class Editor(object):
         self.events = list(reversed(collector.events))
         self.main_characters = main_characters
         self.pov_index = 0
-        # maps main characters to 
-        # where we last saw them (and for the purposes of this, for
-        # now, we are omniscient.  eventually we want to track where
-        # the *reader* last saw them.)
+        # maps main characters to where they last were (omniscient)
         self.character_location = {}
+        # maps main characters to where the reader last saw them
+        self.last_seen_at = {}        
 
     def publish(self):
         while len(self.events) > 0:
@@ -295,21 +294,60 @@ class Editor(object):
         quota = random.randint(10, 25)
         paragraph_events = []
         while len(paragraph_events) < quota and len(self.events) > 0:
-            event = self.events.pop()
-            # optimize
-            if paragraph_events:
-                last_character = paragraph_events[-1].participants[0]
-                if event.participants[0] == last_character:
-                    # replace repeated proper nouns with pronouns
-                    if event.phrase.startswith('<1>'):
-                        event.phrase = '<he-1>' + event.phrase[3:]
+            consume_another_event = True
+            while consume_another_event and len(self.events) > 0:
+                consume_another_event = False
+                event = self.events.pop()
+
+                # optimize
+                if paragraph_events:
+                    last_character = paragraph_events[-1].participants[0]
+                    if event.participants[0] == last_character:
+                        # replace repeated proper nouns with pronouns
+                        if event.phrase.startswith('<1>'):
+                            event.phrase = '<he-1>' + event.phrase[3:]
+
+                        # replace chains of 'went to' with 'made way to'
+                        if (paragraph_events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
+                             event.phrase == '<he-1> went to <2>'):
+                             assert event.location == event.participants[1]
+                             assert paragraph_events[-1].location == paragraph_events[-1].participants[1]
+                             paragraph_events[-1].phrase = '<1> made <his-1> way to <2>'
+                             paragraph_events[-1].participants[1] = event.participants[1]
+                             paragraph_events[-1].location = event.participants[1]
+                             # ack
+                             paragraph_events[-1].original_location = self.character_location[last_character]
+                             consume_another_event = True
+                        elif (paragraph_events[-1].phrase in ('<1> made <his-1> way to <2>', '<he-1> made <his-1> way to <2>') and
+                             event.phrase == '<he-1> went to <2>'):
+                             assert event.location == event.participants[1]
+                             assert paragraph_events[-1].location == paragraph_events[-1].participants[1]
+                             paragraph_events[-1].phrase = '<1> made <his-1> way to <2>'
+                             paragraph_events[-1].participants[1] = event.participants[1]
+                             paragraph_events[-1].location = event.participants[1]
+                             
+                             # and if they 'made their way' to their current location...
+                             # if self.character_location[last_character] == paragraph_events[-1].original_location:
+                             #     paragraph_events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
+                                 
+                             consume_another_event = True
+
+            if not paragraph_events:
+                # this is the first sentence of the paragraph
+                # if the reader wasn't aware they were here, add an event
+                if self.last_seen_at.get(pov_actor, None) != event.location:
+                    if not (('went to' in event.phrase) or ('made <his-1> way to' in event.phrase) or (event.phrase == '<1> was in <2>')):
+                        paragraph_events.append(Event('<1> was in <2>', [pov_actor, event.location]))
 
             # update our idea of where the character is, even if these are
             # not events we will be dumping out
             self.character_location[event.participants[0]] = event.location
-            
+
             if event.location == self.character_location[pov_actor]:
                 paragraph_events.append(event)
+                # update the reader's idea of where the character is
+                self.last_seen_at[event.participants[0]] = event.location
+
         return paragraph_events
 
     def publish_paragraph(self, paragraph_events):

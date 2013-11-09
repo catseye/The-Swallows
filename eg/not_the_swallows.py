@@ -17,10 +17,10 @@ from swallows.engine.objects import Location, ProperLocation, Male, Female
 
 ### world ###
 
-main_street = ProperLocation("Main Street")
-butchers = Location("butcher's")
-bakery = Location("bakery")
-candlestick_factory = Location("candlestick factory")
+main_street = ProperLocation("Main Street", noun="street")
+butchers = Location("butcher's", noun="store")
+bakery = Location("bakery", noun="store")
+candlestick_factory = Location("candlestick factory", noun="building")
 
 main_street.set_exits(butchers, bakery, candlestick_factory)
 butchers.set_exits(main_street)

@@ -283,7 +283,6 @@ class Editor(object):
         self.character_location = {}
 
     def publish(self):
-        # yoiks.  i have very little idea what I'm doing
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
             self.publish_paragraph(pov_actor)
@@ -292,10 +291,25 @@ class Editor(object):
                 self.pov_index = 0
 
     def publish_paragraph(self, pov_actor):
-        sentences_to_go = 20  # RANDOMIZE THIS
+        sentences_to_go = random.randint(10, 25)  # RANDOMIZE THIS
+
+        recent_events = []
+
         while sentences_to_go > 0 and len(self.events) > 0:
             event = self.events.pop()
+
+            # optimize
+            if recent_events:
+                last_character = recent_events[-1].participants[0]
+                if event.participants[0] == last_character:
+                    if event.phrase.startswith('<1>'):
+                        event.phrase = '<he-1>' + event.phrase[3:]
+
             sentences_produced = self.consume(event, pov_actor)
+            
+            if sentences_produced > 0:
+                recent_events.append(event)
+
             sentences_to_go -= sentences_produced
         print
         print
@@ -323,8 +337,8 @@ class Publisher(object):
         self.friffery = kwargs.get('friffery', False)
         self.debug = kwargs.get('debug', False)
         self.title = kwargs.get('title', "Untitled")
-        self.chapters = kwargs.get('chapters', 16)
-        self.events_per_chapter = kwargs.get('events_per_chapter', 1300)
+        self.chapters = kwargs.get('chapters', 18)
+        self.events_per_chapter = kwargs.get('events_per_chapter', 810)
 
     def publish_chapter(self, chapter_num):
         collector = EventCollector()

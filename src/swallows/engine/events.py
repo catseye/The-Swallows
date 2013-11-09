@@ -8,7 +8,6 @@ from swallows.util import pick
 # TODO
 
 # Diction:
-# - eliminate identical duplicate sentences
 # - Bob is in the dining room & "Bob made his way to the dining room" ->
 #   "Bob wandered around for a bit, then came back to the dining room"
 # - comvert "Bob went to the shed.  Bob saw Alice." into
@@ -46,6 +45,10 @@ class Event(object):
         self.participants = participants
         self.location = participants[0].location
         self.excl = excl
+
+    def rephrase(self, new_phrase):
+        """Does not modify the event.  Returns a new copy."""
+        return Event(new_phrase, self.participants, excl=self.excl)
 
     def initiator(self):
         return self.participants[0]
@@ -132,6 +135,8 @@ class Editor(object):
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
             paragraph_events = self.generate_paragraph_events(pov_actor)
+            if paragraph_events:
+                paragraph_events = self.optimize_paragraph_events(paragraph_events)
             self.publish_paragraph(paragraph_events)
             self.pov_index += 1
             if self.pov_index >= len(self.main_characters):
@@ -141,43 +146,7 @@ class Editor(object):
         quota = random.randint(10, 25)
         paragraph_events = []
         while len(paragraph_events) < quota and len(self.events) > 0:
-            consume_another_event = True
-            while consume_another_event and len(self.events) > 0:
-                consume_another_event = False
-                event = self.events.pop()
-
-                # optimize
-                if paragraph_events:
-                    last_character = paragraph_events[-1].participants[0]
-                    if event.participants[0] == last_character:
-                        # replace repeated proper nouns with pronouns
-                        if event.phrase.startswith('<1>'):
-                            event.phrase = '<he-1>' + event.phrase[3:]
-
-                        # replace chains of 'went to' with 'made way to'
-                        if (paragraph_events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
-                             event.phrase == '<he-1> went to <2>'):
-                             assert event.location == event.participants[1]
-                             assert paragraph_events[-1].location == paragraph_events[-1].participants[1]
-                             paragraph_events[-1].phrase = '<1> made <his-1> way to <2>'
-                             paragraph_events[-1].participants[1] = event.participants[1]
-                             paragraph_events[-1].location = event.participants[1]
-                             # ack
-                             paragraph_events[-1].original_location = self.character_location[last_character]
-                             consume_another_event = True
-                        elif (paragraph_events[-1].phrase in ('<1> made <his-1> way to <2>', '<he-1> made <his-1> way to <2>') and
-                             event.phrase == '<he-1> went to <2>'):
-                             assert event.location == event.participants[1]
-                             assert paragraph_events[-1].location == paragraph_events[-1].participants[1]
-                             paragraph_events[-1].phrase = '<1> made <his-1> way to <2>'
-                             paragraph_events[-1].participants[1] = event.participants[1]
-                             paragraph_events[-1].location = event.participants[1]
-                             
-                             # and if they 'made their way' to their current location...
-                             # if self.character_location[last_character] == paragraph_events[-1].original_location:
-                             #     paragraph_events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
-                                 
-                             consume_another_event = True
+            event = self.events.pop()
 
             if not paragraph_events:
                 # this is the first sentence of the paragraph
@@ -196,6 +165,65 @@ class Editor(object):
                 self.last_seen_at[event.participants[0]] = event.location
 
         return paragraph_events
+
+    def optimize_paragraph_events(self, incoming_events):
+        incoming_events = list(reversed(incoming_events))
+        events = []
+        events.append(incoming_events.pop())
+        
+        def dedup_append(event):
+            # check for verbatim repeated. this could be 'dangerous' if, say,
+            # you have two characters, Bob Jones and Bob Smith, and both are
+            # named 'Bob', and they are actually two different events... but...
+            # for now that is an edge case.
+            if str(event) == str(events[-1]):
+                events[-1].phrase = event.phrase + ', twice'
+            elif str(event.rephrase(event.phrase + ', twice')) == str(events[-1]):
+                events[-1].phrase = event.phrase + ', several times'
+            elif str(event.rephrase(event.phrase + ', several times')) == str(events[-1]):
+                pass
+            else:
+                events.append(event)
+
+        while incoming_events:
+            consume_another_event = True
+            while consume_another_event and incoming_events:
+                consume_another_event = False
+                event = incoming_events.pop()
+                last_character = events[-1].participants[0]
+                if event.participants[0] == last_character:
+                
+                    # replace repeated proper nouns with pronouns
+                    if event.phrase.startswith('<1>'):
+                        event.phrase = '<he-1>' + event.phrase[3:]
+                
+                    # replace chains of 'went to' with 'made way to'
+                    if (events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
+                         event.phrase == '<he-1> went to <2>'):
+                         assert event.location == event.participants[1]
+                         assert events[-1].location == events[-1].participants[1]
+                         events[-1].phrase = '<1> made <his-1> way to <2>'
+                         events[-1].participants[1] = event.participants[1]
+                         events[-1].location = event.participants[1]
+                         # ack
+                         events[-1].original_location = self.character_location[last_character]
+                         consume_another_event = True
+                    elif (events[-1].phrase in ('<1> made <his-1> way to <2>', '<he-1> made <his-1> way to <2>') and
+                         event.phrase == '<he-1> went to <2>'):
+                         assert event.location == event.participants[1]
+                         assert events[-1].location == events[-1].participants[1]
+                         events[-1].phrase = '<1> made <his-1> way to <2>'
+                         events[-1].participants[1] = event.participants[1]
+                         events[-1].location = event.participants[1]
+                         consume_another_event = True
+                         
+                    # and if they 'made their way' to their current location...
+                    # if self.character_location[last_character] == events[-1].original_location:
+                    #     events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
+
+            dedup_append(event)
+
+        return events
 
     def publish_paragraph(self, paragraph_events):
         for event in paragraph_events:

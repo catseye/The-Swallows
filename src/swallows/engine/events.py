@@ -276,20 +276,17 @@ class Editor(object):
     """
  
     def __init__(self, collector, main_characters):
-        # This dedup'ing is temporary.
-        # Eventually, we will dedup at the source (the Actors which
-        # are currently producing redundant events.)
-        collector.dedup()
         self.events = list(reversed(collector.events))
         self.main_characters = main_characters
         self.pov_index = 0
+        # maps main characters to 
+        # where we last saw them (and for the purposes of this, for
+        # now, we are omniscient.  eventually we want to track where
+        # the *reader* last saw them.)
+        self.character_location = {}
 
     def publish(self):
         # yoiks.  i have very little idea what I'm doing
-        # XXX this gets duplicates because we are producing duplicates in
-        # the engine because the engine assumes each actor has its own
-        # event collector which is no longer the case.
-        # XXX fix for now by deduping the event stream... somewhere...
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
             self.publish_paragraph(pov_actor)
@@ -298,7 +295,7 @@ class Editor(object):
                 self.pov_index = 0
 
     def publish_paragraph(self, pov_actor):
-        sentences_to_go = 10
+        sentences_to_go = 20  # RANDOMIZE THIS
         while sentences_to_go > 0 and len(self.events) > 0:
             event = self.events.pop()
             sentences_produced = self.consume(event, pov_actor)
@@ -310,20 +307,16 @@ class Editor(object):
         """Returns how many sentences it produced.
 
         """
-        if False:  # debug
-            print "%r in %s: %s" % (
-                [p.render([]) for p in event.participants],
-                event.location.render([]),
-                event.phrase
-            )
+        # update our idea of where the character is, even if these are
+        # not events we will be dumping out
+        self.character_location[event.participants[0]] = event.location
+
+        if event.location == self.character_location[pov_actor]:
+            sys.stdout.write(str(event) + "  ")
+            #sys.stdout.write("\n")
             return 1
         else:
-            if event.participants[0] is pov_actor:
-                sys.stdout.write(str(event) + "  ")
-                sys.stdout.write("\n")
-                return 1
-            else:
-                return 0
+            return 0
 
 
 class Publisher(object):
@@ -334,7 +327,7 @@ class Publisher(object):
         self.debug = kwargs.get('debug', False)
         self.title = kwargs.get('title', "Untitled")
         self.chapters = kwargs.get('chapters', 16)
-        self.events_per_chapter = kwargs.get('events_per_chapter', 50)
+        self.events_per_chapter = kwargs.get('events_per_chapter', 1300)
 
     def publish_chapter(self, chapter_num):
 
@@ -352,19 +345,35 @@ class Publisher(object):
                 actor.live()
                 #print len(collector.events) # , repr([str(e) for e in collector.events])
 
+        # this contains duplicates because we are producing duplicates in
+        # the engine because the engine assumes each actor has its own
+        # event collector which is no longer the case.
+        # This dedup'ing is temporary.
+        # Eventually, we will dedup at the source (the Actors which
+        # are currently producing redundant events.)
+        collector.dedup()
+
         if self.debug:
             for character in self.characters:
-                print "%s'S POV:" % character.name.upper()
-                for event in character.collector.events:
-                    print str(event)
+                print "%s'S EVENTS:" % character.name.upper()                
+                for event in collector.events:
+                    if event.participants[0] != character:
+                        continue
+                    print "%r in %s: %s" % (
+                        [p.render([]) for p in event.participants],
+                        event.location.render([]),
+                        event.phrase
+                    )
                 print
+            for character in self.characters:
+                print "%s'S STATE:" % character.name.upper()
                 character.dump_memory()
                 print
             print "- - - - -"
             print
-        else:
-            editor = Editor(collector, self.characters)
-            editor.publish()
+
+        editor = Editor(collector, self.characters)
+        editor.publish()
 
     def publish(self):
         print self.title

@@ -183,8 +183,8 @@ class Editor(object):
                 # this is the first sentence of the paragraph
                 # if the reader wasn't aware they were here, add an event
                 if self.last_seen_at.get(pov_actor, None) != event.location:
-                    if not (('went to' in event.phrase) or ('made <his-1> way to' in event.phrase) or (event.phrase == '<1> was in <2>')):
-                        paragraph_events.append(Event('<1> was in <2>', [pov_actor, event.location]))
+                    if not (('went to' in event.phrase) or ('made <his-1> way to' in event.phrase) or (event.phrase == '<1> <was-1> in <2>')):
+                        paragraph_events.append(Event('<1> <was-1> in <2>', [pov_actor, event.location]))
 
             # update our idea of where the character is, even if these are
             # not events we will be dumping out

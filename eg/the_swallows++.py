@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
 # now we can:
-from swallows.engine.events import LegacyPublisher
+from swallows.engine.events import Publisher
 from swallows.story.characters import MaleCharacter
 from swallows.story.world import (
     alice, bob, house,
@@ -32,7 +32,7 @@ fred = MaleCharacter('Fred',
 
 ### main ###
 
-publisher = LegacyPublisher(
+publisher = Publisher(
     characters=(
         alice,
         bob,

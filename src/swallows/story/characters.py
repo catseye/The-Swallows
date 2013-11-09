@@ -74,25 +74,14 @@ class Character(Animate):
         """Override some behaviour upon moving to a new location.
 
         """
-        assert(location != self.location)
-        assert(location is not None)
-        for x in self.location.contents:
-            # otherwise we get "Bob saw Bob leave the room", eh?
-            if x is self:
-                continue
-            if x.animate():
-                x.emit("<1> saw <2> leave the %s" % x.location.noun(), [x, self])
-        if self.location is not None:
-            self.location.contents.remove(self)
-        self.location = location
-        self.location.contents.append(self)
-        self.emit("<1> went to <2>", [self, self.location])
+        Animate.move_to(self, location)
         if random.randint(0, 10) == 0:
             self.emit("It was so nice being in <2> again",
              [self, self.location], excl=True)
         
         # okay, look around you.
         for x in self.location.contents:
+            assert x.location == self.location
             if x == self:
                 continue
             if x.horror():

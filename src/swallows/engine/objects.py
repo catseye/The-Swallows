@@ -45,7 +45,7 @@ class Actor(object):
     def __init__(self, name, location=None, collector=None):
         self.name = name
         self.collector = collector
-        self.contents = []
+        self.contents = set()
         self.enter = ""
         self.location = None
         if location is not None:
@@ -98,7 +98,7 @@ class Actor(object):
         if self.location:
             self.location.contents.remove(self)
         self.location = location
-        self.location.contents.append(self)
+        self.location.contents.add(self)
 
     def render(self, participants):
         name = self.name
@@ -234,7 +234,7 @@ class Animate(Actor):
         if self.location is not None:
             self.location.contents.remove(self)
         self.location = location
-        self.location.contents.append(self)
+        self.location.contents.add(self)
         self.emit("<1> <was-1> in <2>", [self, self.location])
         for x in self.location.contents:
             if x == self:
@@ -255,7 +255,8 @@ class Animate(Actor):
         if self.location is not None:
             self.location.contents.remove(self)
         self.location = location
-        self.location.contents.append(self)
+        assert self not in self.location.contents
+        self.location.contents.add(self)
         self.emit("<1> went to <2>", [self, self.location])
 
     def point_at(self, other, item):
@@ -263,8 +264,7 @@ class Animate(Actor):
         # indicate the revolver as part of the Topic which will follow,
         # or otherwise indicate the context as "at gunpoint"
 
-        # XXX SERIOUSLY WE HAVE TO FIX THIS
-        # assert self.location == other.location
+        assert self.location == other.location
         assert item.location == self
         self.emit("<1> pointed <3> at <2>",
             [self, other, item])
@@ -298,8 +298,7 @@ class Animate(Actor):
 
     def give_to(self, other, item):
         assert(item.location == self)
-        # XXX seriously? this isn't preserved? blast
-        # assert(self.location == other.location)
+        assert(self.location == other.location)
         self.emit("<1> gave <3> to <2>", [self, other, item])
         other.emit("<1> gave <3> to <2>", [self, other, item])
         item.move_to(other)
@@ -338,7 +337,7 @@ class Location(Actor):
     def __init__(self, name, enter="went to", noun="room"):
         self.name = name
         self.enter = enter
-        self.contents = []
+        self.contents = set()
         self.exits = []
         self.noun_ = noun
 

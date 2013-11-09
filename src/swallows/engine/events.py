@@ -190,7 +190,7 @@ class LegacyPublisher(object):
             for character in self.characters:
                 # don't continue a conversation from the previous chapter, please
                 character.topic = None
-                character.location = None
+                character.place_in(pick(self.setting))
         
             for paragraph in range(1, self.paragraphs_per_chapter+1):
                 for character in self.characters:
@@ -200,12 +200,9 @@ class LegacyPublisher(object):
                 pov_actor = (self.characters)[(paragraph - 1) % len(self.characters)]
 
                 for actor in self.characters:
-                    if actor.location is None:
-                        actor.place_in(pick(self.setting))
-                    else:
-                        # this is hacky & won't work for >2 characters:
-                        if self.characters[0].location is not self.characters[1].location:
-                            actor.emit("<1> was in <2>", [actor, actor.location])
+                    # this is hacky & won't work for >2 characters:
+                    if self.characters[0].location is not self.characters[1].location:
+                        actor.emit("<1> was in <2>", [actor, actor.location])
 
                 while len(pov_actor.collector.events) < 20:
                     for actor in self.characters:
@@ -330,14 +327,12 @@ class Publisher(object):
         self.events_per_chapter = kwargs.get('events_per_chapter', 1300)
 
     def publish_chapter(self, chapter_num):
-
         collector = EventCollector()
         
         for actor in self.characters:
             actor.collector = collector
             # don't continue a conversation from the previous chapter, please
             actor.topic = None
-            actor.location = None
             actor.place_in(pick(self.setting))
 
         while len(collector.events) < self.events_per_chapter:

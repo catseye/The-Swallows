@@ -10,7 +10,7 @@ import sys
 # get the ../src/ directory onto the Python module search path
 sys.path.insert(0, join(dirname(realpath(sys.argv[0])), '..', 'src'))
 
-# now we can:
+# now we can import the classes we will work with
 from swallows.engine.events import Publisher
 from swallows.story.characters import MaleCharacter
 from swallows.story.world import (

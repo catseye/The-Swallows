@@ -241,9 +241,19 @@ class Animate(Actor):
         print "decisions:", repr(self.what_to_do_about)
         print "knowledge of others' decisions:", repr(self.other_decision_about)
 
-    def remember(self, thing, location, informant=None, concealer=None):
+    def remember_location(self, thing, location, concealer=None):
         """Update this Animate's beliefs to include a belief that the
         given thing is located at the given location.
+
+        Really just a readable alias for believe_location.
+
+        """
+        self.believe_location(thing, location, informant=None, concealer=concealer)
+
+    def believe_location(self, thing, location, informant=None, concealer=None):
+        """Update this Animate's beliefs to include a belief that the
+        given thing is located at the given location.  They may have
+        been told this by someone.
 
         """
         assert isinstance(thing, Actor)
@@ -262,7 +272,7 @@ class Animate(Actor):
         belief_set.add(belief)
         self.beliefs[thing] = belief_set
 
-    def recall(self, thing):
+    def recall_location(self, thing):
         """Return an ItemLocationBelief about this thing, or None."""
         assert isinstance(thing, Actor)
         belief_set = self.beliefs.get(thing, set())
@@ -314,7 +324,7 @@ class Animate(Actor):
                 continue
             if x.notable():
                 self.emit("<1> saw <2>", [self, x])
-                self.remember(x, self.location)
+                self.remember_location(x, self.location)
 
     def move_to(self, location):
         assert(location != self.location)
@@ -343,7 +353,7 @@ class Animate(Actor):
             [self, other, item])
         for actor in self.location.contents:
             if actor.animate():
-                actor.remember(item, self)
+                actor.remember_location(item, self)
 
     def put_down(self, item):
         assert(item.location == self)
@@ -351,7 +361,7 @@ class Animate(Actor):
         item.move_to(self.location)
         for actor in self.location.contents:
             if actor.animate():
-                actor.remember(item, self.location)
+                actor.remember_location(item, self.location)
 
     def pick_up(self, item):
         assert(item.location == self.location)
@@ -359,7 +369,7 @@ class Animate(Actor):
         item.move_to(self)
         for actor in self.location.contents:
             if actor.animate():
-                actor.remember(item, self)
+                actor.remember_location(item, self)
 
     def give_to(self, other, item):
         assert(item.location == self)
@@ -368,7 +378,7 @@ class Animate(Actor):
         item.move_to(other)
         for actor in self.location.contents:
             if actor.animate():
-                actor.remember(item, other)
+                actor.remember_location(item, other)
 
     def wander(self):
         self.move_to(

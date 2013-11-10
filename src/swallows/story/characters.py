@@ -84,22 +84,22 @@ class Character(Animate):
             if x == self:
                 continue
             if x.horror():
-                memory = self.recall(x)
-                if memory:
+                belief = self.recall_location(x)
+                if belief:
                     amount = random.choice(['shudder', 'wave'])
                     emotion = random.choice(['fear', 'disgust', 'sickness', 'loathing'])
                     self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
-                    self.remember(x, self.location)
+                    self.remember_location(x, self.location)
                 else:
                     verb = random.choice(['screamed', 'yelped', 'went pale'])
                     self.emit("<1> %s at the sight of <indef-2>" % verb, [self, x], excl=True)
-                    self.remember(x, self.location)
+                    self.remember_location(x, self.location)
                     self.nerves = 'shaken'
             elif x.animate():
                 other = x
                 self.emit("<1> saw <2>", [self, other])
                 other.emit("<1> saw <2> walk into the %s" % self.location.noun(), [other, self])
-                self.remember(x, self.location)
+                self.remember_location(x, self.location)
                 self.greet(x, "'Hello, <2>,' said <1>")
                 for y in other.contents:
                     if y.treasure():
@@ -118,9 +118,11 @@ class Character(Animate):
                 # XXX should be done with BeliefBeliefs
                 if self.revolver.location == self:
                     for thing in other.beliefs:
-                        other_belief = other.recall(thing)
-                        self_belief = self.recall(thing)
+                        other_belief = other.recall_location(thing)
+                        self_belief = self.recall_location(thing)
                         if self_belief:
+                            continue
+                        if not other_belief:  # ??? well, it happens
                             continue
                         if (other_belief.concealer == other and
                             thing is not self.revolver):
@@ -132,7 +134,7 @@ class Character(Animate):
                             return
             elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
-                self.remember(x, self.location)
+                self.remember_location(x, self.location)
 
     def live(self):
         """Override some behaviour for taking a turn in the story.
@@ -195,7 +197,7 @@ class Character(Animate):
                 # did I hide something here previously?
                 beliefs_about_container = []
                 for thing in self.beliefs:
-                    belief = self.recall(thing)
+                    belief = self.recall_location(thing)
                     if belief and belief.location == container:
                         beliefs_about_container.append(belief)
                 containers.append((container, beliefs_about_container))
@@ -208,7 +210,7 @@ class Character(Animate):
             (container, beliefs) = random.choice(containers)
             self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
             fixated_on.move_to(container)
-            self.remember(fixated_on, container, concealer=self)
+            self.remember_location(fixated_on, container, concealer=self)
             return self.wander()
         else:
             # we're looking for treasure!
@@ -240,7 +242,7 @@ class Character(Animate):
                         self.forget_location(thing)
                     else:
                         thing.move_to(self)
-                        self.remember(thing, self)
+                        self.remember_location(thing, self)
                 else:
                     self.emit("<1> checked that <3> <was-3> still in <2>",
                               [self, container, thing])
@@ -255,14 +257,14 @@ class Character(Animate):
                 desired_things = []
                 for thing in container.contents:
                     # remember what you saw whilst searching this container
-                    self.remember(thing, container)
+                    self.remember_location(thing, container)
                     if thing.treasure() or thing.weapon() or thing in self.desired_items:
                         desired_things.append(thing)
                 if desired_things:
                     thing = random.choice(desired_things)
                     self.emit("<1> found <2> there, and took <him-2>", [self, thing])
                     thing.move_to(self)
-                    self.remember(thing, self)
+                    self.remember_location(thing, self)
 
     def converse(self, topic):
         self.topic = None
@@ -283,17 +285,17 @@ class Character(Animate):
                     [self, other, found_object])
                 self.give_to(other, found_object)
         elif isinstance(topic, ThreatTellMeTopic):
-            memory = self.recall(topic.subject)
-            if not memory:
+            belief = self.recall_location(topic.subject)
+            if not belief:
                 self.speak_to(other,
                     "'I have no memory of that, <2>,' <1> replied",
                     [self, other, topic.subject])
             else:
                 self.speak_to(other,
                     "'Please don't shoot!', <1> cried, '<he-3> <is-3> in <4>'",
-                    [self, other, topic.subject, memory.location])
-                # this is not really a *memory*, btw, it's a *belief*
-                other.remember(topic.subject, memory.location)
+                    [self, other, topic.subject, belief.location])
+                other.believe_location(topic.subject, belief.location,
+                    informant=self, concealer=self)
         elif isinstance(topic, ThreatAgreeTopic):
             decision = self.what_to_do_about[topic.subject]
             self.speak_to(other,
@@ -305,14 +307,14 @@ class Character(Animate):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
-            self_memory = self.recall(self.dead_body)
-            if self_memory:
-                self.discuss(other, self_memory)
+            self_belief = self.recall_location(self.dead_body)
+            if self_belief:
+                self.discuss(other, self_belief)
                 return
             # this need not be *all* the time
             for x in other.contents:
                 if x.notable():
-                    self.remember(x, other)
+                    self.remember_location(x, other)
                     self.speak_to(other, "'I see you are carrying <indef-3>,' said <1>", [self, other, x])
                     return
             choice = random.randint(0, 3)
@@ -331,7 +333,7 @@ class Character(Animate):
             else:
                 self.speak_to(other, "'Perhaps, <2>,' replied <1>")
         elif isinstance(topic, WhereQuestionTopic):
-            belief = self.recall(topic.subject)
+            belief = self.recall_location(topic.subject)
             if not belief:
                 self.speak_to(other,
                     "'I don't know,' <1> answered simply",
@@ -349,13 +351,14 @@ class Character(Animate):
                 if topic.subject.location.animate():
                     self.speak_to(other,
                         "'I think <3> has <4>,', <1> recalled",
-                        [self, other, memory.location, topic.subject])
+                        [self, other, belief.location, topic.subject])
                 else:
                     self.speak_to(other,
                         "'I believe it's in <3>, <2>,', <1> recalled",
                         [self, other, belief.location])
-                # the method we're calling could use a better name, eh?
-                other.remember(topic.subject, belief.location)
+                other.believe_location(
+                    topic.subject, belief.location, informant=self
+                )
         elif isinstance(topic, SpeechTopic):
             choice = random.randint(0, 5)
             if choice == 0:
@@ -380,7 +383,7 @@ class Character(Animate):
         # in general, characters should not be able to read each other's
         # minds.  however, it's convenient here.  besides, their face would
         # be pretty easy to read in this circumstance.
-        other_memory = other.recall(self_memory.subject)
+        other_memory = other.recall_location(self_memory.subject)
         if self_memory and not other_memory:
             self.question(other,
                "'Did you know there's <indef-3> in <4>?' asked <1>",
@@ -406,7 +409,7 @@ class Character(Animate):
                             self.desired_items.remove(self.brandy)
                         self.nerves = 'calm'
                         self.put_down(self.brandy)
-                    elif self.recall(self.brandy):
+                    elif self.recall_location(self.brandy):
                         self.speak_to(other,
                             "'I really must pour myself a drink,' moaned <1>",
                             [self, other, self_memory.subject],

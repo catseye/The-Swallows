@@ -8,13 +8,9 @@ import sys
 # Diction:
 # - Bob is in the dining room & "Bob made his way to the dining room" ->
 #   "Bob wandered around for a bit, then came back to the dining room"
-# - convert "Bob went to the shed.  Bob saw Alice." into
-#           "Bob went to the shed, where he saw Alice."
-#   ...this is trickier than it looks because <1> is Bob, <2> is shed, and
-#   Alice was <2> but now she has to become <3>, or... something.
-# - a better solution for "Bob was in the kitchen" at the start of a paragraph;
-#   this might include significant memories Bob acquired in the last
-#   paragraph -- such as finding a revolver in the bed
+# - At the start of a paragraph, as well as telling us where a character
+#   is if it's not obvious, also include significant memories they
+#   acquired in the last paragraph -- such as finding a revolver in the bed
 # - use indef art when they have no memory of an item that they see
 # - dramatic irony would be really nice, but hard to pull off.  Well, a certain
 #   amount happens naturally now, with character pov.  but more could be done
@@ -159,6 +155,10 @@ class Editor(object):
     as the first event for each character.  Otherwise the Editor don't know
     who started where.
 
+    Well, OK, it *used* to look a lot like a peephole optimizer.  Soon, it
+    will make multiple passes.  It still looks a lot like the optimization
+    phase of a compiler, though.
+
     """
  
     def __init__(self, collector, main_characters):
@@ -168,7 +168,7 @@ class Editor(object):
         # maps main characters to where they currently are (omnisciently)
         self.character_location = {}
         # maps main characters to where the reader last saw them
-        self.last_seen_at = {}        
+        self.last_seen_at = {}
 
     def publish(self):
         while len(self.events) > 0:
@@ -255,7 +255,15 @@ class Editor(object):
                          events[-1].participants[1] = event.participants[1]
                          events[-1].location = event.participants[1]
                          consume_another_event = True
-                         
+                    elif (events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
+                          event.phrase in ('<1> saw <2>', '<he-1> saw <2>')):
+                         # this *might* be better if we only do it when <1>
+                         # is the pov character for this paragraph.  but it
+                         # does work...
+                         events[-1] = AggregateEvent(
+                             "%s, where %s", [events[-1], event],
+                             excl = event.excl)
+                         consume_another_event = True
                     # and if they 'made their way' to their current location...
                     # if self.character_location[last_character] == events[-1].original_location:
                     #     events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
@@ -292,16 +300,6 @@ class Publisher(object):
             # don't continue a conversation from the previous chapter, please
             character.topic = None
             character.place_in(random.choice(self.setting))
-
-        # just testing
-        for character in self.characters:
-            character.collector.collect(AggregateEvent(
-                "%s, then %s",
-                [
-                  Event("<1> looked at <his-1> shoes", [character]),
-                  Event("<1> looked at the sky", [character]),
-                ],
-                excl=True))
 
         while len(collector.events) < self.events_per_chapter:
             for character in self.characters:

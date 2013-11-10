@@ -108,21 +108,10 @@ class EventCollector(object):
         self.events = []
     
     def collect(self, event):
+        if self.events and str(event) == str(self.events[-1]):
+            raise ValueError('Duplicate event: %s' % event)
         self.events.append(event)
 
-    def dedup(self):
-        """Modifies the sequence of events so that the same event
-        does not occur multiple times in a row.
-
-        """
-        if len(self.events) <= 1:
-            return
-        events = [self.events[0]]
-        for event in self.events[1:]:
-            if str(event) != str(events[-1]):
-                events.append(event)
-        self.events = events
-        
 
 # not really needed, as emit() does nothing if there is no collector
 class Oblivion(EventCollector):
@@ -305,14 +294,6 @@ class Publisher(object):
             for character in self.characters:
                 character.live()
                 #print len(collector.events) # , repr([str(e) for e in collector.events])
-
-        # this contains duplicates because we are producing duplicates in
-        # the engine because the engine assumes each actor has its own
-        # event collector which is no longer the case.
-        # This dedup'ing is temporary.
-        # Eventually, we will dedup at the source (the Actors which
-        # are currently producing redundant events.)
-        collector.dedup()
 
         if self.debug:
             for character in self.characters:

@@ -214,10 +214,7 @@ class Animate(Actor):
         if participants is None:
             participants = [self, other]
         other.topic = topic
-        # in the absence of a better event-collection system
-        # we do this sort of thing when >1 actor can observe an event:
         self.emit(phrase, participants)
-        other.emit(phrase, participants)
 
     def greet(self, other, phrase, participants=None):
         self.address(other, GreetTopic(self), phrase, participants)
@@ -272,42 +269,34 @@ class Animate(Actor):
         assert item.location == self
         self.emit("<1> pointed <3> at <2>",
             [self, other, item])
-        other.emit("<1> pointed <3> at <2>",
-            [self, other, item])
-        other.remember(item, self)
+        for actor in self.location.contents:
+            if actor.animate():
+                actor.remember(item, self)
 
     def put_down(self, item):
         assert(item.location == self)
         self.emit("<1> put down <2>", [self, item])
         item.move_to(self.location)
-        self.remember(item, self.location)
-        for other in self.location.contents:
-            if other is self:
-                continue
-            if other.animate():
-                other.emit("<1> put down <2>", [self, item])
-                other.remember(item, self.location)
+        for actor in self.location.contents:
+            if actor.animate():
+                actor.remember(item, self.location)
 
     def pick_up(self, item):
         assert(item.location == self.location)
         self.emit("<1> picked up <2>", [self, item])
         item.move_to(self)
-        self.remember(item, self)
-        for other in self.location.contents:
-            if other is self:
-                continue
-            if other.animate():
-                other.emit("<1> picked up <2>", [self, item])
-                other.remember(item, self)
+        for actor in self.location.contents:
+            if actor.animate():
+                actor.remember(item, self)
 
     def give_to(self, other, item):
         assert(item.location == self)
         assert(self.location == other.location)
         self.emit("<1> gave <3> to <2>", [self, other, item])
-        other.emit("<1> gave <3> to <2>", [self, other, item])
         item.move_to(other)
-        self.remember(item, other)
-        other.remember(item, other)
+        for actor in self.location.contents:
+            if actor.animate():
+                actor.remember(item, other)
 
     def wander(self):
         self.move_to(

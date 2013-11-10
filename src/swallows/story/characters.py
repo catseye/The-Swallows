@@ -296,8 +296,6 @@ class Character(Animate):
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
-            # but otoh this sort of thing does not scale:
-            other.emit("'Hello, <2>,' replied <1>", [self, other])
             # this needs to be more general
             self_memory = self.recall(self.dead_body)
             if self_memory:

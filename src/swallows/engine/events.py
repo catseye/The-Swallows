@@ -53,7 +53,7 @@ class Event(object):
     def initiator(self):
         return self.participants[0]
 
-    def __str__(self):
+    def render(self):
         phrase = self.phrase
         i = 0
         for participant in self.participants:
@@ -65,6 +65,41 @@ class Event(object):
             phrase = phrase.replace('<was-%d>' % (i + 1), participant.was())
             phrase = phrase.replace('<is-%d>' % (i + 1), participant.is_())
             i = i + 1
+        return phrase
+
+    def __str__(self):
+        phrase = self.render()
+        if self.excl:
+            phrase = phrase + '!'
+        else:
+            phrase = phrase + '.'
+        return phrase[0].upper() + phrase[1:]
+
+
+class AggregateEvent(Event):
+    """Attempt at a way to combine multiple events into a single
+    sentence.  Each constituent event must have the same initiator.
+
+    """
+    def __init__(self, template, events, excl=False):
+        self.template = template
+        self.events = events
+        self.excl = excl
+        self.phrase = 'SEE SUBEVENTS PLZ'
+        self._initiator = self.events[0].initiator()
+        for event in self.events:
+            assert event.initiator() == self._initiator
+        self.location = self._initiator.location
+
+    def rephrase(self, new_phrase):
+        #raise NotImplementedError
+        return self
+
+    def initiator(self):
+        return self._initiator
+
+    def __str__(self):
+        phrase = self.template % tuple([x.render() for x in self.events])
         if self.excl:
             phrase = phrase + '!'
         else:
@@ -161,12 +196,12 @@ class Editor(object):
 
             # update our idea of where the character is, even if these are
             # not events we will be dumping out
-            self.character_location[event.participants[0]] = event.location
+            self.character_location[event.initiator()] = event.location
 
             if event.location == self.character_location[pov_actor]:
                 paragraph_events.append(event)
                 # update the reader's idea of where the character is
-                self.last_seen_at[event.participants[0]] = event.location
+                self.last_seen_at[event.initiator()] = event.location
 
         return paragraph_events
 
@@ -194,9 +229,9 @@ class Editor(object):
             while consume_another_event and incoming_events:
                 consume_another_event = False
                 event = incoming_events.pop()
-                last_character = events[-1].participants[0]
-                if event.participants[0] == last_character:
-                
+                last_character = events[-1].initiator()
+                if event.initiator() == last_character:
+
                     # replace repeated proper nouns with pronouns
                     if event.phrase.startswith('<1>'):
                         event.phrase = '<he-1>' + event.phrase[3:]
@@ -252,15 +287,25 @@ class Publisher(object):
     def publish_chapter(self, chapter_num):
         collector = EventCollector()
         
-        for actor in self.characters:
-            actor.collector = collector
+        for character in self.characters:
+            character.collector = collector
             # don't continue a conversation from the previous chapter, please
-            actor.topic = None
-            actor.place_in(random.choice(self.setting))
+            character.topic = None
+            character.place_in(random.choice(self.setting))
+
+        # just testing
+        for character in self.characters:
+            character.collector.collect(AggregateEvent(
+                "%s, then %s",
+                [
+                  Event("<1> looked at <his-1> shoes", [character]),
+                  Event("<1> looked at the sky", [character]),
+                ],
+                excl=True))
 
         while len(collector.events) < self.events_per_chapter:
-            for actor in self.characters:
-                actor.live()
+            for character in self.characters:
+                character.live()
                 #print len(collector.events) # , repr([str(e) for e in collector.events])
 
         # this contains duplicates because we are producing duplicates in

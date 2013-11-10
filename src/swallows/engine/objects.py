@@ -363,6 +363,10 @@ class Animate(Actor):
         self.beliefs.remove(Desire(thing))
 
     def does_desire(self, thing):
+        if thing.treasure():
+            return True  # omg YES
+        if thing.weapon():
+            return True  # could come in handy.  (TODO, sophisticate this?)
         return self.beliefs.get(Desire(thing)) is not None
 
     def believed_beliefs_of(self, other):

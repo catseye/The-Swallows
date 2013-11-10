@@ -309,7 +309,7 @@ class Publisher(object):
                 print
             for character in self.characters:
                 print "%s'S STATE:" % character.name.upper()
-                character.dump_memory()
+                character.dump_beliefs()
                 print
             print "- - - - -"
             print

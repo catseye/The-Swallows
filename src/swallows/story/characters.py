@@ -115,13 +115,15 @@ class Character(Animate):
                             return
                 # another case of mind-reading.  well, it helps the story advance!
                 # (it would help more to double-check this against your OWN memory)
+                # XXX should be done with BeliefBeliefs
                 if self.revolver.location == self:
-                    for thing in other.memories:
-                        memory = other.recall(thing)
-                        self_memory = self.recall(thing)
-                        if self_memory:
+                    for thing in other.beliefs:
+                        other_belief = other.recall(thing)
+                        self_belief = self.recall(thing)
+                        if self_belief:
                             continue
-                        if memory.i_hid_it_there and memory.subject is not self.revolver:
+                        if (other_belief.concealer == other and
+                            thing is not self.revolver):
                             self.point_at(other, self.revolver)
                             self.address(other,
                                 ThreatTellMeTopic(self, subject=thing),
@@ -182,66 +184,72 @@ class Character(Animate):
             return self.wander()
 
     #
-    # The following are fairly Swallows-specific methods.
+    # The following are fairly plot-specific.
     #
 
     def hide_and_seek(self, fixated_on):
         # check for some place to hide the thing you're fixating on
         containers = []
-        for x in self.location.contents:
-            if x.container():
+        for container in self.location.contents:
+            if container.container():
                 # did I hide something here previously?
-                memories = []
-                for thing in self.memories:
-                    memory = self.recall(thing)
-                    if memory.location == x:
-                        memories.append(memory)
-                containers.append((x, memories))
+                beliefs_about_container = []
+                for thing in self.beliefs:
+                    belief = self.recall(thing)
+                    if belief and belief.location == container:
+                        beliefs_about_container.append(belief)
+                containers.append((container, beliefs_about_container))
         if not containers:
+            # ? ... maybe this should be the responsibility of the caller
             return self.wander()
         # ok!  we now have a list of containers, each of which has zero or
-        # more memories of things being in it.
+        # more beliefs of things being in it.
         if fixated_on:
-            (container, memories) = random.choice(containers)
+            (container, beliefs) = random.choice(containers)
             self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
             fixated_on.move_to(container)
-            self.remember(fixated_on, container, i_hid_it_there=True)
+            self.remember(fixated_on, container, concealer=self)
             return self.wander()
         else:
             # we're looking for treasure!
             # todo: it would maybe be better to prioritize this selection
-            (container, memories) = random.choice(containers)
+            (container, beliefs) = random.choice(containers)
             # sometimes, we don't care what we think we know about something
             # (this lets us, for example, explore things in hopes of brandy)
-            if memories and random.randint(0, 3) == 0:
-                memories = None
-            if memories:
-                memory = random.choice(memories)
+            if beliefs and random.randint(0, 3) == 0:
+                beliefs = None
+            if beliefs:
+                belief = random.choice(beliefs)
+                thing = belief.subject
                 picking_up = random.randint(0, 5) == 0
-                if memory.subject is self.revolver:
+                if thing is self.revolver:
                     picking_up = True
                 if picking_up:
-                    if memory.i_hid_it_there:
+                    if belief.concealer is self:
                         self.emit("<1> retrieved <3> <he-1> had hidden in <2>",
-                                  [self, container, memory.subject])
+                                  [self, container, thing])
                     else:
                         self.emit("<1> retrieved <3> from <2>",
-                                  [self, container, memory.subject])
+                                  [self, container, thing])
                     # but!
-                    if memory.subject.location != container:
-                        self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
+                    if thing.location != container:
+                        self.emit("But <he-2> <was-2> missing", 
+                            [self, thing], excl=True
+                        )
                         # forget ALLLLLLL about it, then.  so realistic!
-                        del self.memories[memory.subject]
+                        self.forget_location(thing)
                     else:
-                        memory.subject.move_to(self)
-                        self.remember(memory.subject, self)
+                        thing.move_to(self)
+                        self.remember(thing, self)
                 else:
                     self.emit("<1> checked that <3> <was-3> still in <2>",
-                              [self, container, memory.subject])
+                              [self, container, thing])
                     # but!
-                    if memory.subject.location != container:
-                        self.emit("But <he-2> <was-2> missing", [self, memory.subject], excl=True)
-                        del self.memories[memory.subject]
+                    if thing.location != container:
+                        self.emit("But <he-2> <was-2> missing",
+                            [self, thing], excl=True
+                        )
+                        self.forget_location(thing)
             else:  # no memories of this
                 self.emit("<1> searched <2>", [self, container])
                 desired_things = []
@@ -323,12 +331,12 @@ class Character(Animate):
             else:
                 self.speak_to(other, "'Perhaps, <2>,' replied <1>")
         elif isinstance(topic, WhereQuestionTopic):
-            memory = self.recall(topic.subject)
-            if not memory:
+            belief = self.recall(topic.subject)
+            if not belief:
                 self.speak_to(other,
                     "'I don't know,' <1> answered simply",
                     [self, other, topic.subject])
-            elif memory.i_hid_it_there:
+            elif belief.concealer == self:
                 self.question(other,
                     "'Why do you want to know where <3> is, <2>?'",
                     [self, other, topic.subject])
@@ -345,9 +353,9 @@ class Character(Animate):
                 else:
                     self.speak_to(other,
                         "'I believe it's in <3>, <2>,', <1> recalled",
-                        [self, other, memory.location])
-                # again, belief.  hearsay.  not a memory, really.
-                other.remember(topic.subject, memory.location)
+                        [self, other, belief.location])
+                # the method we're calling could use a better name, eh?
+                other.remember(topic.subject, belief.location)
         elif isinstance(topic, SpeechTopic):
             choice = random.randint(0, 5)
             if choice == 0:

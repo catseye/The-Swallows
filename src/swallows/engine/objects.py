@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import random
 import sys
 
@@ -29,13 +27,59 @@ class QuestionTopic(Topic):
     pass
 
 
-### MEMORIES ###
+### BELIEFS ###
 
-class Memory(object):
-    def __init__(self, subject, location, i_hid_it_there=False):
-        self.subject = subject  # the thing being remembered
-        self.location = location  # where we last remember seeing it
-        self.i_hid_it_there = i_hid_it_there
+#
+# a belief is something an Animate believes.  they come in a few types:
+#
+# - a belief that an object is somewhere
+#   - because they saw it there (memory)
+#   - because some other character told them it was there
+# - a belief that they should do something (a goal)
+# - a belief that another Animate believes something
+#
+# of course, any particular belief may turn out not to be true
+#
+
+# abstract base class
+class Belief(object):
+    def __init__(self, subject):    # kind of silly for an ABC to have a constructor, but ok
+        self.subject = subject      # the thing we believe something about
+
+    def __str__(self):
+        raise NotImplementedError
+
+
+class ItemLocationBelief(Belief):   # formerly "Memory"
+    def __init__(self, subject, location, informant=None, concealer=None):
+        self.subject = subject      # the thing we think is somewhere
+        self.location = location    # the place we think it is
+        self.informant = informant  # the actor who told us about it
+        self.concealer = concealer  # the actor who we think hid it ther
+
+    def __str__(self):
+        return "%s is in %s" % (
+            self.subject.render([]),
+            self.location.render([])
+        )
+        #if .
+        #    print ".oO{ I hid it there }"
+
+
+# this could itself have several subclasses
+class GoalBelief(Belief):
+    def __init__(self, subject, phrase):
+        self.subject = subject   # the thing we would like to do something about
+        self.phrase = phrase     # human-readable description
+
+
+# oh dear
+class BeliefBelief(Belief):
+    def __init__(self, subject, belief):
+        assert isinstance(subject, Animate)
+        assert isinstance(belief, Belief)
+        self.subject = subject   # the animate we think holds the belief
+        self.belief = belief     # the belief we think they hold
 
 
 ### ACTORS (objects in the world) ###
@@ -116,19 +160,6 @@ class Actor(object):
             article = 'an'
         return '%s %s' % (article, self.name)
 
-    # for debugging
-    def dump_memory(self):
-        for thing in self.memories:
-            memory = self.memories[thing]
-            print ".oO{ %s is in %s }" % (
-                memory.subject.render([]),
-                memory.location.render([]))
-            if memory.i_hid_it_there:
-                print ".oO{ I hid it there }"
-        print "desired items:", repr(self.desired_items)
-        print "decisions:", repr(self.what_to_do_about)
-        print "knowledge of others' decisions:", repr(self.other_decision_about)
-
 
 ### some mixins for Actors ###
 
@@ -186,8 +217,8 @@ class Animate(Actor):
     def __init__(self, name, location=None, collector=None):
         Actor.__init__(self, name, location=location, collector=None)
         self.topic = None
-        # hash of actor object to Memory object
-        self.memories = {}
+        # map of actors to sets of Beliefs about them
+        self.beliefs = {}
         self.desired_items = set()
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
@@ -202,13 +233,54 @@ class Animate(Actor):
     def animate(self):
         return True
 
-    def remember(self, thing, location, i_hid_it_there=False):
+    # for debugging
+    def dump_beliefs(self):
+        for subject in self.beliefs:
+            print ".oO{ %s }" % self.beliefs[subject]
+        print "desired items:", repr(self.desired_items)
+        print "decisions:", repr(self.what_to_do_about)
+        print "knowledge of others' decisions:", repr(self.other_decision_about)
+
+    def remember(self, thing, location, informant=None, concealer=None):
+        """Update this Animate's beliefs to include a belief that the
+        given thing is located at the given location.
+
+        """
         assert isinstance(thing, Actor)
-        self.memories[thing] = Memory(thing, location, i_hid_it_there=i_hid_it_there)
-    
+        belief_set = self.beliefs.get(thing, set())
+        for belief in belief_set:
+            if isinstance(belief, ItemLocationBelief):
+                # update it
+                belief.location = location
+                belief.informant = informant
+                belief.concealer = concealer
+                return
+        # if we're still here, we didn't have any such belief, so add one
+        belief = ItemLocationBelief(
+            thing, location, informant=informant, concealer=concealer
+        )
+        belief_set.add(belief)
+        self.beliefs[thing] = belief_set
+
     def recall(self, thing):
+        """Return an ItemLocationBelief about this thing, or None."""
         assert isinstance(thing, Actor)
-        return self.memories.get(thing, None)
+        belief_set = self.beliefs.get(thing, set())
+        for belief in belief_set:
+            if isinstance(belief, ItemLocationBelief):
+                return belief
+        return None
+
+    def forget_location(self, thing):
+        assert isinstance(thing, Actor)
+        belief_set = self.beliefs.get(thing, set())
+        target_beliefs = set()
+        for belief in belief_set:
+            if isinstance(belief, ItemLocationBelief):
+                target_beliefs.add(belief)
+        assert len(target_beliefs) in (0, 1)
+        for belief in target_beliefs:
+            belief_set.remove(belief)
 
     def address(self, other, topic, phrase, participants=None):
         if participants is None:

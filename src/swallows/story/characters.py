@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import random
 import sys
 
@@ -147,7 +145,7 @@ class Character(Animate):
         # otherwise, if there are items here that you desire, you *must* pick
         # them up.
         for x in self.location.contents:
-            if x.treasure() or x.weapon() or x in self.desired_items:
+            if self.does_desire(x):
                 self.pick_up(x)
                 return
         people_about = False
@@ -258,7 +256,7 @@ class Character(Animate):
                 for thing in container.contents:
                     # remember what you saw whilst searching this container
                     self.remember_location(thing, container)
-                    if thing.treasure() or thing.weapon() or thing in self.desired_items:
+                    if self.does_desire(thing):
                         desired_things.append(thing)
                 if desired_things:
                     thing = random.choice(desired_things)
@@ -405,8 +403,7 @@ class Character(Animate):
                     if self.brandy.location == self:
                         self.emit("<1> poured <him-1>self a glass of brandy",
                             [self, other, self_memory.subject])
-                        if self.brandy in self.desired_items:
-                            self.desired_items.remove(self.brandy)
+                        self.quench_desire(self.brandy)
                         self.nerves = 'calm'
                         self.put_down(self.brandy)
                     elif self.recall_location(self.brandy):
@@ -414,7 +411,7 @@ class Character(Animate):
                             "'I really must pour myself a drink,' moaned <1>",
                             [self, other, self_memory.subject],
                             subject=self.brandy)
-                        self.desired_items.add(self.brandy)
+                        self.desire(self.brandy)
                         if random.randint(0, 1) == 0:
                             self.address(other, WhereQuestionTopic(self, subject=self.brandy),
                                 "'Where did you say <3> was?'",
@@ -423,7 +420,7 @@ class Character(Animate):
                         self.address(other, WhereQuestionTopic(self, subject=self.brandy),
                             "'Where is the brandy?  I need a drink,' managed <1>",
                             [self, other, self_memory.subject])
-                        self.desired_items.add(self.brandy)
+                        self.desire(self.brandy)
 
     # this is its own method for indentation reasons
     def decide_what_to_do_about(self, other, thing):

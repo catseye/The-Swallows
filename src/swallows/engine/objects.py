@@ -234,7 +234,12 @@ class Animate(Actor):
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.add(self)
+        # this is needed so that the Editor knows where the character starts
+        # (it is possible a future Editor might be able to strip out
+        # instances of these that aren't informative, though)
         self.emit("<1> <was-1> in <2>", [self, self.location])
+        # a side-effect of the following code is, if they start in a location
+        # with a horror,they don't react to it.  They probably should.
         for x in self.location.contents:
             if x == self:
                 continue

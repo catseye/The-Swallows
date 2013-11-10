@@ -8,8 +8,10 @@ import sys
 # Diction:
 # - Bob is in the dining room & "Bob made his way to the dining room" ->
 #   "Bob wandered around for a bit, then came back to the dining room"
-# - comvert "Bob went to the shed.  Bob saw Alice." into
+# - convert "Bob went to the shed.  Bob saw Alice." into
 #           "Bob went to the shed, where he saw Alice."
+#   ...this is trickier than it looks because <1> is Bob, <2> is shed, and
+#   Alice was <2> but now she has to become <3>, or... something.
 # - a better solution for "Bob was in the kitchen" at the start of a paragraph;
 #   this might include significant memories Bob acquired in the last
 #   paragraph -- such as finding a revolver in the bed
@@ -118,13 +120,17 @@ class Editor(object):
     follow.  (I don't think there's a compiler construction analogy for
     that.)
 
+    Note that the event stream must start with "<Character> was in <place>"
+    as the first event for each character.  Otherwise the Editor don't know
+    who started where.
+
     """
  
     def __init__(self, collector, main_characters):
         self.events = list(reversed(collector.events))
         self.main_characters = main_characters
         self.pov_index = 0
-        # maps main characters to where they last were (omniscient)
+        # maps main characters to where they currently are (omnisciently)
         self.character_location = {}
         # maps main characters to where the reader last saw them
         self.last_seen_at = {}        

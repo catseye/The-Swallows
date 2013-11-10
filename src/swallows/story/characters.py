@@ -5,6 +5,7 @@ from swallows.engine.objects import (
     Animate, ProperMixin, MasculineMixin, FeminineMixin,
     Topic,
     GreetTopic, SpeechTopic, QuestionTopic,
+    Goal,
 )
 
 # TODO
@@ -295,12 +296,13 @@ class Character(Animate):
                 other.believe_location(topic.subject, belief.location,
                     informant=self, concealer=self)
         elif isinstance(topic, ThreatAgreeTopic):
-            decision = self.what_to_do_about[topic.subject]
             self.speak_to(other,
                "'You make a persuasive case for remaining undecided, <2>,' said <1>",
                [self, other])
-            del self.what_to_do_about[topic.subject]
-            del other.other_decision_about[topic.subject]
+            self.beliefs.remove(Goal(topic.subject))
+            # update other's BeliefsBelief about self to no longer
+            # contain this Goal
+            other.believed_beliefs_of(self).remove(Goal(topic.subject))
         elif isinstance(topic, GreetTopic):
             # emit, because making this a speak_to leads to too much silliness
             self.emit("'Hello, <2>,' replied <1>", [self, other])
@@ -424,48 +426,55 @@ class Character(Animate):
 
     # this is its own method for indentation reasons
     def decide_what_to_do_about(self, other, thing):
-        phrase = {
-            'call': 'call the police',
-            'dispose': 'try to dispose of <3>'
-        }
         # this should probably be affected by whether this
         # character has, oh, i don't know, put the other at
         # gunpoint yet, or not, or something
-        if self.what_to_do_about.get(thing) is None:
+        my_goal = self.beliefs.get(Goal(thing))
+        if my_goal is None:
             if random.randint(0, 1) == 0:
-                self.what_to_do_about[thing] = 'call'
+                self.beliefs.add(Goal(thing, 'call the police about'))
             else:
-                self.what_to_do_about[thing] = 'dispose'
+                self.beliefs.add(Goal(thing, 'try to dispose of'))
+        my_goal = self.beliefs.get(Goal(thing))
+        assert my_goal is not None
 
-        if self.other_decision_about.get(thing, None) == self.what_to_do_about[thing]:
+        # here's where it gets a bit gnarly.
+        # what do I believe the other believes?
+        other_beliefs = self.believed_beliefs_of(other)
+        # more specifically, what are their goals regarding the thing?
+        other_goal = other_beliefs.get(Goal(thing))
+
+        # they don't have one yet.  tell them ours.
+        if other_goal is None:
+            self.speak_to(other,
+                "'I really think we should %s <3>, <2>,' said <1>" % my_goal.phrase,
+                [self, other, thing])
+            # ok, they know what I think now:
+            other.believed_beliefs_of(self).add(my_goal)
+        elif other_goal.phrase == my_goal.phrase:
+            # TODO make this an AgreementQuestion or smth
             self.question(other,
-                ("'So we're agreed then, we should %s?' asked <1>" %
-                  phrase[self.what_to_do_about[thing]]),
+                ("'So we're agreed then, we should %s <3>?' asked <1>" %
+                  my_goal.phrase),
                 [self, other, thing])
             # the other party might not've been aware that they agree
-            other.other_decision_about[thing] = \
-              self.what_to_do_about[thing]
-        elif self.other_decision_about.get(thing, None) is not None:
-            # WE DO NOT AGREE.
+            other.believed_beliefs_of(self).add(my_goal)
+        else:  # WE DO NOT AGREE.
             if self.revolver.location == self:
                 self.point_at(other, self.revolver)
                 self.address(other,
                     ThreatAgreeTopic(self, subject=thing),
-                    ("'I really feel *very* strongly that we should %s, <2>,' <he-1> said between clenched teeth" %
-                     phrase[self.what_to_do_about[thing]]),
+                    ("'I really feel *very* strongly that we should %s <3>, <2>,' <he-1> said between clenched teeth" %
+                     my_goal.phrase),
                     [self, other, thing])
+                # just in case they weren't clued in yet
+                other.believed_beliefs_of(self).add(my_goal)
             else:
                 self.speak_to(other,
-                    ("'I don't think it would be a good idea to %s, <2>,' said <1>" %
-                    phrase[self.other_decision_about[thing]]),
+                    ("'I don't think it would be a good idea to %s <3>, <2>,' said <1>" %
+                    my_goal.phrase),
                     [self, other, thing])
-        else:
-            self.speak_to(other,
-                ("'I really think we should %s, <2>,' said <1>" %
-                     phrase[self.what_to_do_about[thing]]),
-                [self, other, thing])
-            other.other_decision_about[thing] = \
-              self.what_to_do_about[thing]
+                other.believed_beliefs_of(self).add(my_goal)
 
 
 class MaleCharacter(MasculineMixin, ProperMixin, Character):

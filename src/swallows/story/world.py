@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
+import random
+
 from swallows.engine.objects import (
     Location, ProperLocation, Treasure, PluralTreasure,
     Container, ProperContainer,
     Item, Weapon, Horror
 )
 from swallows.story.characters import MaleCharacter, FemaleCharacter
-from swallows.util import pick
 
 # TODO
 
@@ -68,7 +69,7 @@ bobs_bed = ProperContainer("Bob's bed", location=bobs_bedroom)
 alices_bed = ProperContainer("Alice's bed", location=alices_bedroom)
 
 brandy = Item('bottle of brandy', location=liquor_cabinet)
-revolver = Weapon('revolver', location=pick([bobs_bed, alices_bed]))
+revolver = Weapon('revolver', location=random.choice([bobs_bed, alices_bed]))
 dead_body = Horror('dead body', location=bathroom)
 
 # when making alice and bob, we let them recognize certain important

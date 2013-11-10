@@ -4,7 +4,6 @@ import random
 import sys
 
 from swallows.engine.events import Event
-from swallows.util import pick
 
 ### TOPICS ###
 

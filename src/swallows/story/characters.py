@@ -8,7 +8,6 @@ from swallows.engine.objects import (
     Topic,
     GreetTopic, SpeechTopic, QuestionTopic,
 )
-from swallows.util import pick
 
 # TODO
 
@@ -87,12 +86,12 @@ class Character(Animate):
             if x.horror():
                 memory = self.recall(x)
                 if memory:
-                    amount = pick(['shudder', 'wave'])
-                    emotion = pick(['fear', 'disgust', 'sickness', 'loathing'])
+                    amount = random.choice(['shudder', 'wave'])
+                    emotion = random.choice(['fear', 'disgust', 'sickness', 'loathing'])
                     self.emit("<1> felt a %s of %s as <he-1> looked at <2>" % (amount, emotion), [self, x])
                     self.remember(x, self.location)
                 else:
-                    verb = pick(['screamed', 'yelped', 'went pale'])
+                    verb = random.choice(['screamed', 'yelped', 'went pale'])
                     self.emit("<1> %s at the sight of <indef-2>" % verb, [self, x], excl=True)
                     self.remember(x, self.location)
                     self.nerves = 'shaken'
@@ -203,7 +202,7 @@ class Character(Animate):
         # ok!  we now have a list of containers, each of which has zero or
         # more memories of things being in it.
         if fixated_on:
-            (container, memories) = pick(containers)
+            (container, memories) = random.choice(containers)
             self.emit("<1> hid <2> in <3>", [self, fixated_on, container])
             fixated_on.move_to(container)
             self.remember(fixated_on, container, i_hid_it_there=True)
@@ -211,13 +210,13 @@ class Character(Animate):
         else:
             # we're looking for treasure!
             # todo: it would maybe be better to prioritize this selection
-            (container, memories) = pick(containers)
+            (container, memories) = random.choice(containers)
             # sometimes, we don't care what we think we know about something
             # (this lets us, for example, explore things in hopes of brandy)
             if memories and random.randint(0, 3) == 0:
                 memories = None
             if memories:
-                memory = pick(memories)
+                memory = random.choice(memories)
                 picking_up = random.randint(0, 5) == 0
                 if memory.subject is self.revolver:
                     picking_up = True
@@ -252,7 +251,7 @@ class Character(Animate):
                     if thing.treasure() or thing.weapon() or thing in self.desired_items:
                         desired_things.append(thing)
                 if desired_things:
-                    thing = pick(desired_things)
+                    thing = random.choice(desired_things)
                     self.emit("<1> found <2> there, and took <him-2>", [self, thing])
                     thing.move_to(self)
                     self.remember(thing, self)
@@ -365,7 +364,7 @@ class Character(Animate):
                 self.speak_to(other, "'Oh, I know, I know,' said <1>")
             if choice == 5:
                 # -- this is getting really annoying.  disable for now. --
-                # item = pick(ALL_ITEMS)
+                # item = random.choice(ALL_ITEMS)
                 # self.question(other, "'But what about <3>, <2>?' posed <1>",
                 #    [self, other, item], subject=item)
                 self.speak_to(other, "'I see, <2>, I see,' said <1>")

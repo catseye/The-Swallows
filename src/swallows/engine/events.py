@@ -3,8 +3,6 @@
 import random
 import sys
 
-from swallows.util import pick
-
 # TODO
 
 # Diction:
@@ -252,7 +250,7 @@ class Publisher(object):
             actor.collector = collector
             # don't continue a conversation from the previous chapter, please
             actor.topic = None
-            actor.place_in(pick(self.setting))
+            actor.place_in(random.choice(self.setting))
 
         while len(collector.events) < self.events_per_chapter:
             for actor in self.characters:

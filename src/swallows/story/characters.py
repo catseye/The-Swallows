@@ -115,7 +115,7 @@ class Character(Animate):
                 # (it would help more to double-check this against your OWN memory)
                 # XXX should be done with BeliefBeliefs
                 if self.revolver.location == self:
-                    for thing in other.beliefs:
+                    for thing in other.beliefs.subjects():
                         other_belief = other.recall_location(thing)
                         self_belief = self.recall_location(thing)
                         if self_belief:
@@ -194,7 +194,7 @@ class Character(Animate):
             if container.container():
                 # did I hide something here previously?
                 beliefs_about_container = []
-                for thing in self.beliefs:
+                for thing in self.beliefs.subjects():
                     belief = self.recall_location(thing)
                     if belief and belief.location == container:
                         beliefs_about_container.append(belief)

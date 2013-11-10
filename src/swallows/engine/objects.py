@@ -45,10 +45,11 @@ class QuestionTopic(Topic):
 
 # abstract base class
 class Belief(object):
-    def __init__(self, subject):    # kind of silly for an ABC to have a
-                                    # constructor, but it is to emphasize that
-                                    # all beliefs have a subject, which is
-        self.subject = subject      # the thing we believe something about
+    def __init__(self, subject):          # kind of silly for an ABC to have a
+        assert isinstance(subject, Actor) # constructor, but it is to emphasize
+        self.subject = subject            # that all beliefs have a subject,
+                                          # which is the thing we believe
+                                          # something about
 
     def __str__(self):
         raise NotImplementedError
@@ -56,6 +57,8 @@ class Belief(object):
 
 class ItemLocation(Belief):   # formerly "Memory"
     def __init__(self, subject, location, informant=None, concealer=None):
+        assert isinstance(subject, Actor)
+        assert isinstance(location, Actor)
         self.subject = subject      # the thing we think is somewhere
         self.location = location    # the place we think it is
         self.informant = informant  # the actor who told us about it
@@ -76,6 +79,7 @@ class ItemLocation(Belief):   # formerly "Memory"
 # this could itself have several subclasses
 class Goal(Belief):
     def __init__(self, subject, phrase):
+        assert isinstance(subject, Actor)
         self.subject = subject   # the thing we would like to do something about
         self.phrase = phrase     # human-readable description
 
@@ -88,6 +92,7 @@ class Goal(Belief):
 
 class Desire(Goal):
     def __init__(self, subject):
+        assert isinstance(subject, Actor)
         self.subject = subject   # the thing we would like to acquire
 
     def __str__(self):
@@ -109,6 +114,55 @@ class BeliefBelief(Belief):
             self.subject.render([]),
             self.belief
         )
+
+
+class BeliefSet(object):
+    """A BeliefSet works something like a Python set(), but has the
+    following constraints:
+    
+    There can be only one of each type of Belief about a particular
+    item in the set.
+
+    So it's really kind of a map from Actors to maps from Belief
+    subclasses to Beliefs.
+
+    But it behooves us (or at least, me) to think of it as a set.
+    (Besides, it might change.)
+
+    """
+    def __init__(self):
+        self.belief_map = {}
+
+    def add(self, belief):
+        assert isinstance(belief, Belief)
+        subject = belief.subject
+        self.belief_map.setdefault(subject, {})[belief.__class__] = belief
+
+    def remove(self, belief):
+        # the particular belief passed to us doesn't really matter.  we extract
+        # the class and subject and return any existing belief we may have
+        assert isinstance(belief, Belief)
+        subject = belief.subject
+        self.belief_map.setdefault(subject, {})[belief.__class__] = None
+
+    def get(self, belief):
+        # the particular belief passed to us doesn't really matter.  we extract
+        # the class and subject and return any existing belief we may have
+        assert isinstance(belief, Belief)
+        subject = belief.subject
+        return self.belief_map.setdefault(subject, {}).get(
+            belief.__class__, None
+        )
+
+    def subjects(self):
+        for subject in self.belief_map:
+            yield subject
+
+    def beliefs_for(self, subject):
+        # assert belief_class descends from Belief
+        beliefs = self.belief_map.setdefault(subject, {})
+        for class_ in beliefs:
+            yield beliefs[class_]
 
 
 ### ACTORS (objects in the world) ###
@@ -246,8 +300,7 @@ class Animate(Actor):
     def __init__(self, name, location=None, collector=None):
         Actor.__init__(self, name, location=location, collector=None)
         self.topic = None
-        # map of actors to sets of Beliefs about them
-        self.beliefs = {}
+        self.beliefs = BeliefSet()
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
         self.nerves = 'calm'
@@ -263,13 +316,15 @@ class Animate(Actor):
 
     # for debugging
     def dump_beliefs(self):
-        for subject in self.beliefs:
-            for belief in self.beliefs[subject]:
+        for subject in self.beliefs.subjects():
+            for belief in self.beliefs.beliefs_for(subject):
                 print ".oO{ %s }" % belief
         print "decisions:", repr(self.what_to_do_about)
         print "knowledge of others' decisions:", repr(self.other_decision_about)
 
     ###--- belief accessors/manipulators ---###
+    
+    # these are mostly just aliases for accessing the BeliefSet.
 
     def remember_location(self, thing, location, concealer=None):
         """Update this Animate's beliefs to include a belief that the
@@ -286,76 +341,28 @@ class Animate(Actor):
         been told this by someone.
 
         """
-        assert isinstance(thing, Actor)
-        belief_set = self.beliefs.get(thing, set())
-        for belief in belief_set:
-            if isinstance(belief, ItemLocation):
-                # update it
-                belief.location = location
-                belief.informant = informant
-                belief.concealer = concealer
-                return
-        # if we're still here, we didn't have any such belief, so add one
-        belief = ItemLocation(
+        self.beliefs.add(ItemLocation(
             thing, location, informant=informant, concealer=concealer
-        )
-        belief_set.add(belief)
-        self.beliefs[thing] = belief_set
+        ))
 
     def recall_location(self, thing):
         """Return an ItemLocation (belief) about this thing, or None."""
-        assert isinstance(thing, Actor)
-        belief_set = self.beliefs.get(thing, set())
-        for belief in belief_set:
-            if isinstance(belief, ItemLocation):
-                return belief
-        return None
+        return self.beliefs.get(ItemLocation(thing, thing))
 
     def forget_location(self, thing):
-        # this code is unusually roundabout because Python does
-        # not like you to modify a set while iterating it and because
-        # how I've chosen to implement these sets of beliefs
-        assert isinstance(thing, Actor)
-        belief_set = self.beliefs.get(thing, set())
-        target_beliefs = set()
-        for belief in belief_set:
-            if isinstance(belief, ItemLocation):
-                target_beliefs.add(belief)
-        assert len(target_beliefs) in (0, 1), len(target_beliefs)
-        for belief in target_beliefs:
-            belief_set.remove(belief)
+        self.beliefs.remove(ItemLocation(thing, thing))
 
     def desire(self, thing):
-        assert isinstance(thing, Actor)
-        belief_set = self.beliefs.get(thing, set())
-        for belief in belief_set:
-            if isinstance(belief, Desire):
-                return
-        belief_set.add(Desire(thing))
-        self.beliefs[thing] = belief_set
+        self.beliefs.add(Desire(thing))
 
     def quench_desire(self, thing):
         # usually called when it has been acquired
-        assert isinstance(thing, Actor)
-        belief_set = self.beliefs.get(thing, set())
-        target_beliefs = set()
-        for belief in belief_set:
-            if isinstance(belief, Desire):
-                target_beliefs.add(belief)
-        assert len(target_beliefs) in (0, 1), len(target_beliefs)
-        for belief in target_beliefs:
-            belief_set.remove(belief)
+        self.beliefs.remove(Desire(thing))
 
     def does_desire(self, thing):
-        assert isinstance(thing, Actor)
-        if thing.treasure():
-            return True  # omg YES
-        if thing.weapon():
-            return True  # well it could come in useful.  (this may change)
-        belief_set = self.beliefs.get(thing, set())
-        for belief in belief_set:
-            if isinstance(belief, Desire):
-                return True
+        return self.beliefs.get(Desire(thing)) is not None
+
+    ###--- topic stuff ---###
 
     def address(self, other, topic, phrase, participants=None):
         if participants is None:
@@ -371,6 +378,8 @@ class Animate(Actor):
 
     def question(self, other, phrase, participants=None, subject=None):
         self.address(other, QuestionTopic(self, subject=subject), phrase, participants)
+
+    ###--- generic actions ---###
 
     def place_in(self, location):
         # like move_to but quieter; for setting up scenes etc

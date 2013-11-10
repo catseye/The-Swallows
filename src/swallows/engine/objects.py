@@ -54,7 +54,7 @@ class Belief(object):
         raise NotImplementedError
 
 
-class ItemLocationBelief(Belief):   # formerly "Memory"
+class ItemLocation(Belief):   # formerly "Memory"
     def __init__(self, subject, location, informant=None, concealer=None):
         self.subject = subject      # the thing we think is somewhere
         self.location = location    # the place we think it is
@@ -86,7 +86,7 @@ class Goal(Belief):
         )
 
 
-class Desire(Belief):
+class Desire(Goal):
     def __init__(self, subject):
         self.subject = subject   # the thing we would like to acquire
 
@@ -289,25 +289,25 @@ class Animate(Actor):
         assert isinstance(thing, Actor)
         belief_set = self.beliefs.get(thing, set())
         for belief in belief_set:
-            if isinstance(belief, ItemLocationBelief):
+            if isinstance(belief, ItemLocation):
                 # update it
                 belief.location = location
                 belief.informant = informant
                 belief.concealer = concealer
                 return
         # if we're still here, we didn't have any such belief, so add one
-        belief = ItemLocationBelief(
+        belief = ItemLocation(
             thing, location, informant=informant, concealer=concealer
         )
         belief_set.add(belief)
         self.beliefs[thing] = belief_set
 
     def recall_location(self, thing):
-        """Return an ItemLocationBelief about this thing, or None."""
+        """Return an ItemLocation (belief) about this thing, or None."""
         assert isinstance(thing, Actor)
         belief_set = self.beliefs.get(thing, set())
         for belief in belief_set:
-            if isinstance(belief, ItemLocationBelief):
+            if isinstance(belief, ItemLocation):
                 return belief
         return None
 
@@ -319,7 +319,7 @@ class Animate(Actor):
         belief_set = self.beliefs.get(thing, set())
         target_beliefs = set()
         for belief in belief_set:
-            if isinstance(belief, ItemLocationBelief):
+            if isinstance(belief, ItemLocation):
                 target_beliefs.add(belief)
         assert len(target_beliefs) in (0, 1), len(target_beliefs)
         for belief in target_beliefs:

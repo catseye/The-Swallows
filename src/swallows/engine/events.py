@@ -211,26 +211,34 @@ class Transformer(object):
     pass
 
 
+class DeduplicateTransformer(Transformer):
+    # check for verbatim repeated. this could be 'dangerous' if, say,
+    # you have two characters, Bob Jones and Bob Smith, and both are
+    # named 'Bob', and they are actually two different events... but...
+    # for now that is an edge case.
+    def transform(self, editor, incoming_events):
+        events = []
+        for event in incoming_events:
+            if events:
+                if str(event) == str(events[-1]):
+                    events[-1].phrase = event.phrase + ', twice'
+                elif str(event.rephrase(event.phrase + ', twice')) == str(events[-1]):
+                    events[-1].phrase = event.phrase + ', several times'
+                elif str(event.rephrase(event.phrase + ', several times')) == str(events[-1]):
+                    pass
+                else:
+                    events.append(event)
+            else:
+                events.append(event)
+        return events
+
+
 class MegaTransformer(Transformer):
     def transform(self, editor, incoming_events):
         # TODO: rewrite this to use Python's shift(), whatever that is
         incoming_events = list(reversed(incoming_events))
         events = []
         events.append(incoming_events.pop())
-
-        def dedup_append(event):
-            # check for verbatim repeated. this could be 'dangerous' if, say,
-            # you have two characters, Bob Jones and Bob Smith, and both are
-            # named 'Bob', and they are actually two different events... but...
-            # for now that is an edge case.
-            if str(event) == str(events[-1]):
-                events[-1].phrase = event.phrase + ', twice'
-            elif str(event.rephrase(event.phrase + ', twice')) == str(events[-1]):
-                events[-1].phrase = event.phrase + ', several times'
-            elif str(event.rephrase(event.phrase + ', several times')) == str(events[-1]):
-                pass
-            else:
-                events.append(event)
 
         while incoming_events:
             consume_another_event = True
@@ -276,7 +284,7 @@ class MegaTransformer(Transformer):
                     # if editor.character_location[last_character] == events[-1].original_location:
                     #     events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
 
-            dedup_append(event)
+            events.append(event)
 
         return events
 
@@ -328,6 +336,7 @@ class Publisher(object):
 
         editor = Editor(collector, self.characters)
         editor.add_transformer(MegaTransformer())
+        editor.add_transformer(DeduplicateTransformer())
         editor.publish()
 
     def publish(self):

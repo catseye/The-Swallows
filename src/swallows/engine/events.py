@@ -158,13 +158,18 @@ class Editor(object):
         self.character_location = {}
         # maps main characters to where the reader last saw them
         self.last_seen_at = {}
+        self.transformers = []
+
+    def add_transformer(self, transformer):
+        self.transformers.append(transformer)
 
     def publish(self):
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
             paragraph_events = self.generate_paragraph_events(pov_actor)
-            if paragraph_events:
-                paragraph_events = self.optimize_paragraph_events(paragraph_events)
+            for transformer in self.transformers:
+                if paragraph_events:
+                    paragraph_events = transformer.transform(self, paragraph_events)
             self.publish_paragraph(paragraph_events)
             self.pov_index += 1
             if self.pov_index >= len(self.main_characters):
@@ -194,11 +199,25 @@ class Editor(object):
 
         return paragraph_events
 
-    def optimize_paragraph_events(self, incoming_events):
+    def publish_paragraph(self, paragraph_events):
+        for event in paragraph_events:
+            sys.stdout.write(str(event) + "  ")
+            #sys.stdout.write("\n")
+        print
+        print
+
+
+class Transformer(object):
+    pass
+
+
+class MegaTransformer(Transformer):
+    def transform(self, editor, incoming_events):
+        # TODO: rewrite this to use Python's shift(), whatever that is
         incoming_events = list(reversed(incoming_events))
         events = []
         events.append(incoming_events.pop())
-        
+
         def dedup_append(event):
             # check for verbatim repeated. this could be 'dangerous' if, say,
             # you have two characters, Bob Jones and Bob Smith, and both are
@@ -234,7 +253,7 @@ class Editor(object):
                          events[-1].participants[1] = event.participants[1]
                          events[-1].location = event.participants[1]
                          # ack
-                         events[-1].original_location = self.character_location[last_character]
+                         events[-1].original_location = editor.character_location[last_character]
                          consume_another_event = True
                     elif (events[-1].phrase in ('<1> made <his-1> way to <2>', '<he-1> made <his-1> way to <2>') and
                          event.phrase == '<he-1> went to <2>'):
@@ -254,19 +273,12 @@ class Editor(object):
                              excl = event.excl)
                          consume_another_event = True
                     # and if they 'made their way' to their current location...
-                    # if self.character_location[last_character] == events[-1].original_location:
+                    # if editor.character_location[last_character] == events[-1].original_location:
                     #     events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
 
             dedup_append(event)
 
         return events
-
-    def publish_paragraph(self, paragraph_events):
-        for event in paragraph_events:
-            sys.stdout.write(str(event) + "  ")
-            #sys.stdout.write("\n")
-        print
-        print
 
 
 class Publisher(object):
@@ -315,6 +327,7 @@ class Publisher(object):
             print
 
         editor = Editor(collector, self.characters)
+        editor.add_transformer(MegaTransformer())
         editor.publish()
 
     def publish(self):

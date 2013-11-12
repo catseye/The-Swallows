@@ -240,8 +240,7 @@ class UsePronounsTransformer(Transformer):
         for event in incoming_events:
             if events:
                 if event.initiator() == events[-1].initiator():
-                    if event.phrase.startswith('<1>'):
-                        event.phrase = '<he-1>' + event.phrase[3:]
+                    event.phrase = event.phrase.replace('<1>', '<he-1>')
                 events.append(event)
             else:
                 events.append(event)
@@ -250,53 +249,65 @@ class UsePronounsTransformer(Transformer):
 
 class MadeTheirWayToTransformer(Transformer):
     def transform(self, editor, incoming_events):
-        # TODO: rewrite this to use Python's shift(), whatever that is
-        incoming_events = list(reversed(incoming_events))
         events = []
-        events.append(incoming_events.pop())
+        for event in incoming_events:
+            if (events and
+                event.initiator() == events[-1].initiator()):
+                if (events[-1].phrase in ('<1> went to <2>',) and
+                     event.phrase == '<1> went to <2>'):
+                     assert event.location == event.participants[1]
+                     assert events[-1].location == events[-1].participants[1]
+                     events[-1].phrase = '<1> made <his-1> way to <2>'
+                     events[-1].participants[1] = event.participants[1]
+                     events[-1].location = event.participants[1]
+                elif (events[-1].phrase in ('<1> made <his-1> way to <2>',) and
+                     event.phrase == '<1> went to <2>'):
+                     assert event.location == event.participants[1]
+                     assert events[-1].location == events[-1].participants[1]
+                     events[-1].phrase = '<1> made <his-1> way to <2>'
+                     events[-1].participants[1] = event.participants[1]
+                     events[-1].location = event.participants[1]
+                else:
+                    events.append(event)
+            else:
+                events.append(event)
+        return events
 
-        while incoming_events:
-            consume_another_event = True
-            while consume_another_event and incoming_events:
-                consume_another_event = False
-                event = incoming_events.pop()
-                last_character = events[-1].initiator()
-                if event.initiator() == last_character:
-                
-                    # replace chains of 'went to' with 'made way to'
-                    if (events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
-                         event.phrase == '<he-1> went to <2>'):
-                         assert event.location == event.participants[1]
-                         assert events[-1].location == events[-1].participants[1]
-                         events[-1].phrase = '<1> made <his-1> way to <2>'
-                         events[-1].participants[1] = event.participants[1]
-                         events[-1].location = event.participants[1]
-                         # ack
-                         events[-1].original_location = editor.character_location[last_character]
-                         consume_another_event = True
-                    elif (events[-1].phrase in ('<1> made <his-1> way to <2>', '<he-1> made <his-1> way to <2>') and
-                         event.phrase == '<he-1> went to <2>'):
-                         assert event.location == event.participants[1]
-                         assert events[-1].location == events[-1].participants[1]
-                         events[-1].phrase = '<1> made <his-1> way to <2>'
-                         events[-1].participants[1] = event.participants[1]
-                         events[-1].location = event.participants[1]
-                         consume_another_event = True
-                    elif (events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
-                          event.phrase in ('<1> saw <2>', '<he-1> saw <2>')):
-                         # this *might* be better if we only do it when <1>
-                         # is the pov character for this paragraph.  but it
-                         # does work...
-                         events[-1] = AggregateEvent(
-                             "%s, where %s", [events[-1], event],
-                             excl = event.excl)
-                         consume_another_event = True
-                    # and if they 'made their way' to their current location...
-                    # if editor.character_location[last_character] == events[-1].original_location:
-                    #     events[-1].phrase = '<1> wandered around for a bit, then went back to <2>'
 
+class AggregateEventsTransformer(Transformer):
+    # replace "Bob went to the kitchen.  Bob saw the toaster"
+    # with "Bob went to the kitchen, where he saw the toaster"
+    def transform(self, editor, incoming_events):
+        events = []
+        for event in incoming_events:
+            if events:
+                if ( event.initiator() == events[-1].initiator() and
+                     events[-1].phrase in ('<1> went to <2>',) and
+                     event.phrase in ('<1> saw <2>',) ):
+                    # this *might* be better if we only do it when <1>
+                    # is the pov character for this paragraph.  but it
+                    # does work...
+                    event.phrase = event.phrase.replace('<1>', '<he-1>')
+                    events[-1] = AggregateEvent(
+                        "%s, where %s", [events[-1], event],
+                        excl = event.excl)
+                else:
+                    events.append(event)
+            else:
+                events.append(event)
+        return events
+
+
+class DetectWanderingTransformer(Transformer):
+    # not used yet
+    # if they 'made their way' to their current location...
+    def transform(self, editor, incoming_events):
+        events = []
+        for event in incoming_events:
+            if (event.phrase == '<1> made their way to <2>' and
+                event.location == event.original_location):
+                event.phrase = '<1> wandered around for a bit, then came back to <2>'
             events.append(event)
-
         return events
 
 
@@ -348,6 +359,10 @@ class Publisher(object):
         editor = Editor(collector, self.characters)
         editor.add_transformer(MadeTheirWayToTransformer())
         editor.add_transformer(DeduplicateTransformer())
+        editor.add_transformer(AggregateEventsTransformer())
+        # editor.add_transformer(DetectWanderingTransformer())
+        # this one should be last, so prior transformers don't
+        # have to worry themselved about looking for pronouns
         editor.add_transformer(UsePronounsTransformer())
         editor.publish()
 

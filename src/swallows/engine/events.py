@@ -233,7 +233,22 @@ class DeduplicateTransformer(Transformer):
         return events
 
 
-class MegaTransformer(Transformer):
+class UsePronounsTransformer(Transformer):
+    # replace repeated proper nouns with pronouns
+    def transform(self, editor, incoming_events):
+        events = []
+        for event in incoming_events:
+            if events:
+                if event.initiator() == events[-1].initiator():
+                    if event.phrase.startswith('<1>'):
+                        event.phrase = '<he-1>' + event.phrase[3:]
+                events.append(event)
+            else:
+                events.append(event)
+        return events
+
+
+class MadeTheirWayToTransformer(Transformer):
     def transform(self, editor, incoming_events):
         # TODO: rewrite this to use Python's shift(), whatever that is
         incoming_events = list(reversed(incoming_events))
@@ -247,10 +262,6 @@ class MegaTransformer(Transformer):
                 event = incoming_events.pop()
                 last_character = events[-1].initiator()
                 if event.initiator() == last_character:
-
-                    # replace repeated proper nouns with pronouns
-                    if event.phrase.startswith('<1>'):
-                        event.phrase = '<he-1>' + event.phrase[3:]
                 
                     # replace chains of 'went to' with 'made way to'
                     if (events[-1].phrase in ('<1> went to <2>', '<he-1> went to <2>') and
@@ -335,8 +346,9 @@ class Publisher(object):
             print
 
         editor = Editor(collector, self.characters)
-        editor.add_transformer(MegaTransformer())
+        editor.add_transformer(MadeTheirWayToTransformer())
         editor.add_transformer(DeduplicateTransformer())
+        editor.add_transformer(UsePronounsTransformer())
         editor.publish()
 
     def publish(self):

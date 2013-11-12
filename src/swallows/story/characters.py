@@ -5,7 +5,7 @@ from swallows.engine.objects import (
     Animate, ProperMixin, MasculineMixin, FeminineMixin,
     Topic,
     GreetTopic, SpeechTopic, QuestionTopic,
-    Goal,
+    Belief, ItemLocation, Goal,
 )
 
 # TODO
@@ -380,24 +380,34 @@ class Character(Animate):
 
     # this is its own method for indentation reasons
     def discuss(self, other, self_memory):
-        # in general, characters should not be able to read each other's
-        # minds.  however, it's convenient here.  besides, their face would
-        # be pretty easy to read in this circumstance.
-        other_memory = other.recall_location(self_memory.subject)
-        if self_memory and not other_memory:
+        assert self_memory
+        assert isinstance(self_memory, Belief)
+        # for now,
+        # self_memory is an ItemLocation belief about something on our mind
+        assert isinstance(self_memory, ItemLocation)
+
+        # what do I believe the other believes about it?
+        other_beliefs = self.believed_beliefs_of(other)
+        other_memory = other_beliefs.get(self_memory)
+        
+        if not other_memory:
             self.question(other,
                "'Did you know there's <indef-3> in <4>?' asked <1>",
                [self, other, self_memory.subject, self_memory.location],
                subject=self_memory.subject)
+            # well now they know what we think, anyway
+            other.believed_beliefs_of(self).add(self_memory)
             return
-        if self_memory and other_memory:
+        else:
             choice = random.randint(0, 2)
             if choice == 0:
                 self.question(other, "'Do you think we should do something about <3>?' asked <1>",
                     [self, other, self_memory.subject])
+                other.believed_beliefs_of(self).add(self_memory)
             if choice == 1:
                 self.speak_to(other, "'I think we should do something about <3>, <2>,' said <1>",
                     [self, other, self_memory.subject])
+                other.believed_beliefs_of(self).add(self_memory)
             if choice == 2:
                 if self.nerves == 'calm':
                     self.decide_what_to_do_about(other, self_memory.subject)

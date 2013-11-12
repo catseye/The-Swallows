@@ -68,7 +68,7 @@ class ItemLocation(Belief):   # formerly "Memory"
         self.subject = subject      # the thing we think is somewhere
         self.location = location    # the place we think it is
         self.informant = informant  # the actor who told us about it
-        self.concealer = concealer  # the actor who we think hid it ther
+        self.concealer = concealer  # the actor who we think hid it there
 
     def __str__(self):
         s = "%s is in %s" % (
@@ -150,7 +150,9 @@ class BeliefSet(object):
         # the class and subject and return any existing belief we may have
         assert isinstance(belief, Belief)
         subject = belief.subject
-        self.belief_map.setdefault(subject, {})[belief.__class__] = None
+        beliefs = self.belief_map.setdefault(subject, {})
+        if belief.__class__ in beliefs:
+            del beliefs[belief.__class__]
 
     def get(self, belief):
         # the particular belief passed to us doesn't really matter.  we extract
@@ -166,10 +168,15 @@ class BeliefSet(object):
             yield subject
 
     def beliefs_for(self, subject):
-        # assert belief_class descends from Belief
         beliefs = self.belief_map.setdefault(subject, {})
         for class_ in beliefs:
             yield beliefs[class_]
+
+    def beliefs_of_class(self, class_):
+        for subject in self.subjects():
+            for belief in self.beliefs_for(subject):
+                if belief.__class__ == class_:
+                    yield belief
 
     def __str__(self):
         l = []

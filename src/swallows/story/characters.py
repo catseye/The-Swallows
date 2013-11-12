@@ -49,6 +49,16 @@ class ThreatAgreeTopic(Topic):
     pass
 
 
+### some Swallows-specific beliefs
+
+class SuspicionOfHiding(Belief):
+    """This character suspects some other character of hiding this thing."""
+    def __str__(self):
+        return "I think someone hid %s" % (
+            self.subject.render([])
+        )
+
+
 ### Base character personalities for The Swallows
 
 class Character(Animate):
@@ -67,6 +77,12 @@ class Character(Animate):
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
         self.nerves = 'calm'
+
+    def believe_location(self, thing, location, informant=None, concealer=None):
+        # we override this method of Animate in order to also remove
+        # our suspicion that the item has been hidden.  'cos we found it.
+        Animate.believe_location(self, thing, location, informant=informant, concealer=concealer)
+        self.beliefs.remove(SuspicionOfHiding(thing))
 
     def move_to(self, location):
         """Override some behaviour upon moving to a new location.
@@ -112,25 +128,24 @@ class Character(Animate):
                                 "'Please give me <3>, <2>, or I shall shoot you,' <he-1> said",
                                 [self, other, y])
                             return
-                # another case of mind-reading.  well, it helps the story advance!
-                # (it would help more to double-check this against your OWN memory)
-                # XXX should be done with BeliefBeliefs
-                if self.revolver.location == self:
-                    for thing in other.beliefs.subjects():
-                        other_belief = other.recall_location(thing)
-                        self_belief = self.recall_location(thing)
-                        if self_belief:
-                            continue
-                        if not other_belief:  # ??? well, it happens
-                            continue
-                        if (other_belief.concealer == other and
-                            thing is not self.revolver):
-                            self.point_at(other, self.revolver)
-                            self.address(other,
-                                ThreatTellMeTopic(self, subject=thing),
-                                "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
-                                [self, other, thing])
-                            return
+                # check if we suspect something of being hidden.
+                suspicions = list(self.beliefs.beliefs_of_class(SuspicionOfHiding))
+                # if we do... and we can do something about it...
+                actionable_suspicions = []
+                for suspicion in suspicions:
+                    if not suspicion.subject.treasure():
+                        continue
+                    if self.beliefs.get(ItemLocation(suspicion.subject)):
+                        continue
+                    actionable_suspicions.append(suspicion)
+                if actionable_suspicions and self.revolver.location == self:
+                    suspicion = random.choice(actionable_suspicions)
+                    self.point_at(other, self.revolver)
+                    self.address(other,
+                        ThreatTellMeTopic(self, subject=suspicion.subject),
+                        "'Tell me where you have hidden <3>, <2>, or I shall shoot you,' <he-1> said",
+                        [self, other, suspicion.subject])
+                    return
             elif x.notable():
                 self.emit("<1> saw <2>", [self, x])
                 self.remember_location(x, self.location)
@@ -251,6 +266,7 @@ class Character(Animate):
                             [self, thing], excl=True
                         )
                         self.forget_location(thing)
+                        self.beliefs.add(SuspicionOfHiding(thing))
             else:  # no memories of this
                 self.emit("<1> searched <2>", [self, container])
                 desired_things = []

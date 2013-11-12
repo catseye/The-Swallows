@@ -1,13 +1,9 @@
-#!/usr/bin/env python
-
 import random
 import sys
 
 # TODO
 
 # Diction:
-# - Bob is in the dining room & "Bob made his way to the dining room" ->
-#   "Bob wandered around for a bit, then came back to the dining room"
 # - At the start of a paragraph, as well as telling us where a character
 #   is if it's not obvious, also include significant memories they
 #   acquired in the last paragraph -- such as finding a revolver in the bed
@@ -21,7 +17,8 @@ import sys
 ### EVENTS ###
 
 class Event(object):
-    def __init__(self, phrase, participants, excl=False):
+    def __init__(self, phrase, participants, excl=False,
+                 previous_location=None):
         """participants[0] is always the initiator, and we
         record the location that the event was initiated in.
 
@@ -40,6 +37,7 @@ class Event(object):
         self.phrase = phrase
         self.participants = participants
         self.location = participants[0].location
+        self._previous_location = previous_location
         self.excl = excl
 
     def rephrase(self, new_phrase):
@@ -48,6 +46,9 @@ class Event(object):
 
     def initiator(self):
         return self.participants[0]
+
+    def previous_location(self):
+        return self._previous_location
 
     def render(self):
         phrase = self.phrase
@@ -94,6 +95,9 @@ class AggregateEvent(Event):
     def initiator(self):
         return self._initiator
 
+    def previous_location(self):
+        return self.events[0].previous_location()
+
     def __str__(self):
         phrase = self.template % tuple([x.render() for x in self.events])
         if self.excl:
@@ -110,6 +114,9 @@ class EventCollector(object):
     def collect(self, event):
         if self.events and str(event) == str(self.events[-1]):
             raise ValueError('Duplicate event: %s' % event)
+        if event.phrase == '<1> went to <2>':
+            assert event.previous_location() is not None
+            assert event.previous_location() != event.location
         self.events.append(event)
 
 
@@ -256,6 +263,7 @@ class MadeTheirWayToTransformer(Transformer):
                 if (events[-1].phrase in ('<1> went to <2>',) and
                      event.phrase == '<1> went to <2>'):
                      assert event.location == event.participants[1]
+                     assert events[-1].previous_location() is not None
                      assert events[-1].location == events[-1].participants[1]
                      events[-1].phrase = '<1> made <his-1> way to <2>'
                      events[-1].participants[1] = event.participants[1]
@@ -263,6 +271,7 @@ class MadeTheirWayToTransformer(Transformer):
                 elif (events[-1].phrase in ('<1> made <his-1> way to <2>',) and
                      event.phrase == '<1> went to <2>'):
                      assert event.location == event.participants[1]
+                     assert events[-1].previous_location() is not None
                      assert events[-1].location == events[-1].participants[1]
                      events[-1].phrase = '<1> made <his-1> way to <2>'
                      events[-1].participants[1] = event.participants[1]
@@ -304,8 +313,8 @@ class DetectWanderingTransformer(Transformer):
     def transform(self, editor, incoming_events):
         events = []
         for event in incoming_events:
-            if (event.phrase == '<1> made their way to <2>' and
-                event.location == event.original_location):
+            if (event.phrase == '<1> made <his-1> way to <2>' and
+                event.location == event.previous_location()):
                 event.phrase = '<1> wandered around for a bit, then came back to <2>'
             events.append(event)
         return events
@@ -360,7 +369,7 @@ class Publisher(object):
         editor.add_transformer(MadeTheirWayToTransformer())
         editor.add_transformer(DeduplicateTransformer())
         editor.add_transformer(AggregateEventsTransformer())
-        # editor.add_transformer(DetectWanderingTransformer())
+        editor.add_transformer(DetectWanderingTransformer())
         # this one should be last, so prior transformers don't
         # have to worry themselved about looking for pronouns
         editor.add_transformer(UsePronounsTransformer())

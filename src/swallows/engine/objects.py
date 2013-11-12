@@ -434,10 +434,12 @@ class Animate(Actor):
                 x.emit("<1> saw <2> leave the %s" % x.location.noun(), [x, self])
         if self.location is not None:
             self.location.contents.remove(self)
+        previous_location = self.location
         self.location = location
         assert self not in self.location.contents
         self.location.contents.add(self)
-        self.emit("<1> went to <2>", [self, self.location])
+        self.emit("<1> went to <2>", [self, self.location],
+                  previous_location=previous_location)
 
     def point_at(self, other, item):
         # it would be nice if there was some way to

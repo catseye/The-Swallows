@@ -26,6 +26,9 @@ from swallows.story.characters import MaleCharacter, FemaleCharacter
 
 ### world ###
 
+alice = FemaleCharacter('Alice')
+bob = MaleCharacter('Bob')
+
 kitchen = Location('kitchen')
 living_room = Location('living room')
 dining_room = Location('dining room')
@@ -37,8 +40,8 @@ shed = Location('shed', noun="shed")
 upstairs_hall = Location('upstairs hall')
 study = Location('study')
 bathroom = Location('bathroom')
-bobs_bedroom = ProperLocation("Bob's bedroom")
-alices_bedroom = ProperLocation("Alice's bedroom")
+bobs_bedroom = ProperLocation("<*> bedroom", owner=bob)
+alices_bedroom = ProperLocation("<*> bedroom", owner=alice)
 
 kitchen.set_exits(dining_room, front_hall)
 living_room.set_exits(dining_room, front_hall)
@@ -65,8 +68,8 @@ cupboards = Container('cupboards', location=kitchen)
 liquor_cabinet = Container('liquor cabinet', location=dining_room)
 mailbox = Container('mailbox', location=driveway)
 
-bobs_bed = ProperContainer("Bob's bed", location=bobs_bedroom)
-alices_bed = ProperContainer("Alice's bed", location=alices_bedroom)
+bobs_bed = ProperContainer("<*> bed", location=bobs_bedroom, owner=bob)
+alices_bed = ProperContainer("<*> bed", location=alices_bedroom, owner=alice)
 
 brandy = Item('bottle of brandy', location=liquor_cabinet)
 revolver = Weapon('revolver', location=random.choice([bobs_bed, alices_bed]))
@@ -74,15 +77,11 @@ dead_body = Horror('dead body', location=bathroom)
 
 # when making alice and bob, we let them recognize certain important
 # objects in their world
-alice = FemaleCharacter('Alice',
-    revolver=revolver,
-    brandy=brandy,
-    dead_body=dead_body,
-)
-bob = MaleCharacter('Bob',
-    revolver=revolver,
-    brandy=brandy,
-    dead_body=dead_body,
-)
+for c in (alice, bob):
+    c.configure_objects(
+        revolver=revolver,
+        brandy=brandy,
+        dead_body=dead_body,
+    )
 
 ALL_ITEMS = (falcon, jewels, revolver, brandy)

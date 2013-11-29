@@ -55,28 +55,31 @@ class SuspicionOfHiding(Belief):
     """This character suspects some other character of hiding this thing."""
     def __str__(self):
         return "I think someone hid %s" % (
-            self.subject.render([])
+            self.subject.render()
         )
 
 
 ### Base character personalities for The Swallows
 
 class Character(Animate):
-    def __init__(self, name, location=None, collector=None,
-                 revolver=None, brandy=None, dead_body=None):
+    def __init__(self, name, location=None, collector=None):
         """Constructor specific to characters.  In it, we set up some
-        Swallows-specific properties ('nerves') and we set up some important
-        items that this character needs to know about.  This is maybe
-        a form of dependency injection.
+        Swallows-specific properties ('nerves').
 
         """
         Animate.__init__(self, name, location=location, collector=None)
-        self.revolver = revolver
-        self.brandy = brandy
-        self.dead_body = dead_body
         # this should really be *derived* from having a recent memory
         # of seeing a dead body in the bathroom.  but for now,
         self.nerves = 'calm'
+
+    def configure_objects(self, revolver=None, brandy=None, dead_body=None):
+        """Here we set up some important items that this character needs
+        to know about.  This is maybe a form of dependency injection.
+
+        """
+        self.revolver = revolver
+        self.brandy = brandy
+        self.dead_body = dead_body
 
     def believe_location(self, thing, location, informant=None, concealer=None):
         # we override this method of Animate in order to also remove

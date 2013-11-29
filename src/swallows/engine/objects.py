@@ -72,13 +72,13 @@ class ItemLocation(Belief):   # formerly "Memory"
 
     def __str__(self):
         s = "%s is in %s" % (
-            self.subject.render([]),
-            self.location.render([])
+            self.subject.render(),
+            self.location.render()
         )
         if self.concealer:
-            s += " (hidden there by %s)" % self.concealer.render([])
+            s += " (hidden there by %s)" % self.concealer.render()
         if self.informant:
-            s += " (%s told me so)" % self.informant.render([])
+            s += " (%s told me so)" % self.informant.render()
         return s
 
 
@@ -91,7 +91,7 @@ class Goal(Belief):
     def __str__(self):
         return "I should %s %s" % (
             self.phrase,
-            self.subject.render([])
+            self.subject.render()
         )
 
 
@@ -102,7 +102,7 @@ class Desire(Goal):
 
     def __str__(self):
         return "I want %s" % (
-            self.subject.render([])
+            self.subject.render()
         )
 
 
@@ -118,7 +118,7 @@ class BeliefsBelief(Belief):
 
     def __str__(self):
         return "%s believes { %s }" % (
-            self.subject.render([]),
+            self.subject.render(),
             self.belief_set
         )
 
@@ -189,11 +189,12 @@ class BeliefSet(object):
 ### ACTORS (objects in the world) ###
 
 class Actor(object):
-    def __init__(self, name, location=None, collector=None):
+    def __init__(self, name, location=None, owner=None, collector=None):
         self.name = name
         self.collector = collector
         self.contents = set()
         self.enter = ""
+        self.owner = owner
         self.location = None
         if location is not None:
             self.move_to(location)
@@ -247,12 +248,24 @@ class Actor(object):
         self.location = location
         self.location.contents.add(self)
 
-    def render(self, participants):
+    def render(self, event=None):
+        """Return a string containing what we call this object, in the context
+        of the given event (which may be None, to get a 'generic' description.)
+
+        """
         name = self.name
-        if participants:
-            subject = participants[0]
-            posessive = subject.name + "'s"
-            name = name.replace(posessive, subject.posessive())
+        repl = None
+        if self.owner is not None:
+            repl = self.owner.render() + "'s"
+        if event:
+            if event.speaker is self.owner:
+                repl = 'my'
+            elif event.addressed_to is self.owner:
+                repl = 'your'
+            elif event.initiator() is self.owner:
+                repl = event.initiator().posessive()
+        if repl is not None:
+            name = name.replace('<*>', repl)
         article = self.article()
         if not article:
             return name
@@ -318,8 +331,10 @@ class FeminineMixin(object):
 ### ANIMATE OBJECTS ###
 
 class Animate(Actor):
-    def __init__(self, name, location=None, collector=None):
-        Actor.__init__(self, name, location=location, collector=None)
+    def __init__(self, name, location=None, owner=None, collector=None):
+        Actor.__init__(
+            self, name, location=location, owner=owner, collector=None
+        )
         self.topic = None
         self.beliefs = BeliefSet()
 
@@ -412,14 +427,16 @@ class Animate(Actor):
     ###--- generic actions ---###
 
     def place_in(self, location):
-        # like move_to but quieter; for setting up scenes etc
+        """Like move_to but quieter.  For setting up scenes, etc.
+
+        """
         if self.location is not None:
             self.location.contents.remove(self)
         self.location = location
         self.location.contents.add(self)
-        # this is needed so that the Editor knows where the character starts
-        # (it is possible a future Editor might be able to strip out
-        # instances of these that aren't informative, though)
+        # this is needed so that the Editor knows where the character starts.
+        # the Editor should (does?) strip out all instances of these that
+        # aren't informative to the reader.
         self.emit("<1> <was-1> in <2>", [self, self.location])
         # a side-effect of the following code is, if they start in a location
         # with a horror,they don't react to it.  They probably should.
@@ -515,12 +532,13 @@ class Female(FeminineMixin, ProperMixin, Animate):
 ### LOCATIONS ###
 
 class Location(Actor):
-    def __init__(self, name, enter="went to", noun="room"):
+    def __init__(self, name, enter="went to", noun="room", owner=None):
         self.name = name
         self.enter = enter
         self.contents = set()
         self.exits = []
         self.noun_ = noun
+        self.owner = owner
 
     def noun(self):
         return self.noun_

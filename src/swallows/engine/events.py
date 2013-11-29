@@ -18,7 +18,9 @@ import sys
 
 class Event(object):
     def __init__(self, phrase, participants, excl=False,
-                 previous_location=None):
+                 previous_location=None,
+                 speaker=None,
+                 addressed_to=None):
         """participants[0] is always the initiator, and we
         record the location that the event was initiated in.
 
@@ -33,12 +35,18 @@ class Event(object):
         (probably done by passing a number n: the first n
         participants are to be considered active)
 
+        speaker and addressed_to apply to dialogue.
+        If speaker == None, it means the narrator is speaking.
+        If addressed_to == None, it means the reader is being spoken to.
+
         """
         self.phrase = phrase
         self.participants = participants
         self.location = participants[0].location
         self._previous_location = previous_location
         self.excl = excl
+        self.speaker = speaker
+        self.addressed_to = addressed_to
 
     def rephrase(self, new_phrase):
         """Does not modify the event.  Returns a new copy."""
@@ -54,7 +62,7 @@ class Event(object):
         phrase = self.phrase
         i = 0
         for participant in self.participants:
-            phrase = phrase.replace('<%d>' % (i + 1), participant.render(self.participants))
+            phrase = phrase.replace('<%d>' % (i + 1), participant.render(event=self))
             phrase = phrase.replace('<indef-%d>' % (i + 1), participant.indefinite())
             phrase = phrase.replace('<his-%d>' % (i + 1), participant.posessive())
             phrase = phrase.replace('<him-%d>' % (i + 1), participant.accusative())
@@ -76,6 +84,8 @@ class Event(object):
 class AggregateEvent(Event):
     """Attempt at a way to combine multiple events into a single
     sentence.  Each constituent event must have the same initiator.
+
+    This is definitely not as nice as it could be.
 
     """
     def __init__(self, template, events, excl=False):
@@ -353,8 +363,8 @@ class Publisher(object):
                     if event.participants[0] != character:
                         continue
                     print "%r in %s: %s" % (
-                        [p.render([]) for p in event.participants],
-                        event.location.render([]),
+                        [p.render(event=event) for p in event.participants],
+                        event.location.render(),
                         event.phrase
                     )
                 print

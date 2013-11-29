@@ -20,7 +20,7 @@ from swallows.story.world import alice, bob, house
 publisher = Publisher(
     characters=(alice, bob),
     setting=house,
-    title="Dial S for Swallows (DRAFT)",
+    title="Dial S for Swallows",
     friffery=True,
     #debug=True,
     #chapters=1,

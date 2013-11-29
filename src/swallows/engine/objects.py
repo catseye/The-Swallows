@@ -413,7 +413,7 @@ class Animate(Actor):
         if participants is None:
             participants = [self, other]
         other.topic = topic
-        self.emit(phrase, participants)
+        self.emit(phrase, participants, speaker=self, addressed_to=other)
 
     def greet(self, other, phrase, participants=None):
         self.address(other, GreetTopic(self), phrase, participants)

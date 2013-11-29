@@ -27,7 +27,8 @@ from swallows.engine.objects import (
 # (you *can* pass other objects here, for example 'revolver=brandy', in which
 # case the character will act fairly nonsensibly, threatening other characters
 # with the bottle of brandy and so forth)
-fred = MaleCharacter('Fred',
+fred = MaleCharacter('Fred')
+fred.configure_objects(
     revolver=revolver,
     brandy=brandy,
     dead_body=dead_body,
@@ -36,14 +37,14 @@ fred = MaleCharacter('Fred',
 # we extend the world by adding new locations and objects
 # note that locations exited-to and from must be imported from swallows.story.world (above)
 # "Location" is imported from swallows.engine.objects
-freds_office = Location("Fred's office")
+freds_office = ProperLocation("<*> office", owner=fred)
 freds_office.set_exits(upstairs_hall)
 
 upstairs_hall.set_exits(freds_office) # adds to existing (unknown) exits
 
 # we extend the world by adding some Objects
 # "ProperContainer" and "Item" are imported from swallows.engine.objects
-desk = ProperContainer("Fred's desk", location=freds_office)
+desk = ProperContainer("<*> desk", owner=fred, location=freds_office)
 pencils = Item('box of pencils', location=desk)
 
 

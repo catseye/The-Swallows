@@ -4,9 +4,6 @@ import sys
 # TODO
 
 # Diction:
-# - At the start of a paragraph, as well as telling us where a character
-#   is if it's not obvious, also include significant memories they
-#   acquired in the last paragraph -- such as finding a revolver in the bed
 # - use indef art when they have no memory of an item that they see
 # - dramatic irony would be really nice, but hard to pull off.  Well, a certain
 #   amount happens naturally now, with character pov.  but more could be done
@@ -173,11 +170,11 @@ class Editor(object):
         self.events = list(reversed(collector.events))
         self.main_characters = main_characters
         self.pov_index = 0
+        self.transformers = []
         # maps main characters to where they currently are (omnisciently)
         self.character_location = {}
         # maps main characters to where the reader last saw them
         self.last_seen_at = {}
-        self.transformers = []
         # maps characters to things that happened to them while not narrated
         self.exciting_developments = {}
 
@@ -185,16 +182,20 @@ class Editor(object):
         self.transformers.append(transformer)
 
     def publish(self):
+        paragraph_num = 1
         while len(self.events) > 0:
             pov_actor = self.main_characters[self.pov_index]
             paragraph_events = self.generate_paragraph_events(pov_actor)
             for transformer in self.transformers:
                 if paragraph_events:
-                    paragraph_events = transformer.transform(self, paragraph_events)
+                    paragraph_events = transformer.transform(
+                        self, paragraph_events, paragraph_num
+                    )
             self.publish_paragraph(paragraph_events)
             self.pov_index += 1
             if self.pov_index >= len(self.main_characters):
                 self.pov_index = 0
+            paragraph_num += 1
 
     def generate_paragraph_events(self, pov_actor):
         quota = random.randint(10, 25)
@@ -248,7 +249,7 @@ class DeduplicateTransformer(Transformer):
     # you have two characters, Bob Jones and Bob Smith, and both are
     # named 'Bob', and they are actually two different events... but...
     # for now that is an edge case.
-    def transform(self, editor, incoming_events):
+    def transform(self, editor, incoming_events, paragraph_num):
         events = []
         for event in incoming_events:
             if events:
@@ -267,7 +268,7 @@ class DeduplicateTransformer(Transformer):
 
 class UsePronounsTransformer(Transformer):
     # replace repeated proper nouns with pronouns
-    def transform(self, editor, incoming_events):
+    def transform(self, editor, incoming_events, paragraph_num):
         events = []
         for event in incoming_events:
             if events:
@@ -280,7 +281,7 @@ class UsePronounsTransformer(Transformer):
 
 
 class MadeTheirWayToTransformer(Transformer):
-    def transform(self, editor, incoming_events):
+    def transform(self, editor, incoming_events, paragraph_num):
         events = []
         for event in incoming_events:
             if (events and
@@ -308,10 +309,62 @@ class MadeTheirWayToTransformer(Transformer):
         return events
 
 
+# well well well
+from swallows.engine.objects import Actor
+weather = Actor('the weather')
+
+
+class AddWeatherFrifferyTransformer(Transformer):
+    def transform(self, editor, incoming_events, paragraph_num):
+        events = []
+        if paragraph_num == 1:
+            choice = random.randint(0, 3)
+            if choice == 0:
+                events.append(Event("It was raining", [weather]))
+            if choice == 1:
+                events.append(Event("It was snowing", [weather]))
+            if choice == 2:
+                events.append(Event("The sun was shining", [weather]))
+            if choice == 3:
+                events.append(Event("The day was overcast and humid", [weather]))
+        return events + incoming_events
+
+
+class AddParagraphStartFrifferyTransformer(Transformer):
+    def transform(self, editor, incoming_events, paragraph_num):
+        first_event = incoming_events[0]
+        if paragraph_num == 1:
+            return incoming_events
+        if str(first_event).startswith("'"):
+            return incoming_events
+        if " had found " in str(first_event):
+            return incoming_events
+        if " was in " in str(first_event):
+            return incoming_events
+        choice = random.randint(0, 8)
+        if choice == 0:
+            first_event = first_event.rephrase(
+                "Later on, " + first_event.phrase
+            )
+        if choice == 1:
+            first_event = first_event.rephrase(
+                "Suddenly, " + first_event.phrase
+            )
+        if choice == 2:
+            first_event = first_event.rephrase(
+                "After a moment's consideration, " + first_event.phrase
+            )
+        if choice == 3:
+            first_event = first_event.rephrase(
+                "Feeling anxious, " + first_event.phrase
+            )
+        return [first_event] + incoming_events[1:]
+
+
 class AggregateEventsTransformer(Transformer):
     # replace "Bob went to the kitchen.  Bob saw the toaster"
     # with "Bob went to the kitchen, where he saw the toaster"
-    def transform(self, editor, incoming_events):
+    def transform(self, editor, incoming_events, paragraph_num):
         events = []
         for event in incoming_events:
             if events:
@@ -335,7 +388,7 @@ class AggregateEventsTransformer(Transformer):
 class DetectWanderingTransformer(Transformer):
     # not used yet
     # if they 'made their way' to their current location...
-    def transform(self, editor, incoming_events):
+    def transform(self, editor, incoming_events, paragraph_num):
         events = []
         for event in incoming_events:
             if (event.phrase == '<1> made <his-1> way to <2>' and
@@ -396,8 +449,13 @@ class Publisher(object):
         editor.add_transformer(AggregateEventsTransformer())
         editor.add_transformer(DetectWanderingTransformer())
         # this one should be last, so prior transformers don't
-        # have to worry themselved about looking for pronouns
+        # have to worry themselves about looking for pronouns
         editor.add_transformer(UsePronounsTransformer())
+        # this should be a matter of configuring what transformers
+        # to use, when you instantiate a Publisher
+        if self.friffery:
+            editor.add_transformer(AddWeatherFrifferyTransformer())
+            editor.add_transformer(AddParagraphStartFrifferyTransformer())
         editor.publish()
 
     def publish(self):

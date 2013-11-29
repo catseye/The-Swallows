@@ -10,7 +10,8 @@ from swallows.engine.objects import (
 
 # TODO
 
-# they check containers while someone else is in the room?  how'd that get that way?
+# They can hide something, then see the other carrying it, then check that
+# it's still hidden, and be surprised that it's no longer ther.
 # 'Hello, Alice', said Bob.  'Hello, Bob', replied Alice.  NEVER GETS OLD
 # they should always scream at seeing the dead body.  the scream should
 #   be heard throughout the house and yard.

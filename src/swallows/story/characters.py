@@ -280,7 +280,8 @@ class Character(Animate):
                         desired_things.append(thing)
                 if desired_things:
                     thing = random.choice(desired_things)
-                    self.emit("<1> found <2> there, and took <him-2>", [self, thing])
+                    self.emit("<1> found <2> there, and took <him-2>",
+                              [self, thing, container], exciting=True)
                     thing.move_to(self)
                     self.remember_location(thing, self)
 

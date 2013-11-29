@@ -20,7 +20,8 @@ class Event(object):
     def __init__(self, phrase, participants, excl=False,
                  previous_location=None,
                  speaker=None,
-                 addressed_to=None):
+                 addressed_to=None,
+                 exciting=False):
         """participants[0] is always the initiator, and we
         record the location that the event was initiated in.
 
@@ -47,6 +48,7 @@ class Event(object):
         self.excl = excl
         self.speaker = speaker
         self.addressed_to = addressed_to
+        self.exciting = exciting
 
     def rephrase(self, new_phrase):
         """Does not modify the event.  Returns a new copy."""
@@ -176,6 +178,8 @@ class Editor(object):
         # maps main characters to where the reader last saw them
         self.last_seen_at = {}
         self.transformers = []
+        # maps characters to things that happened to them while not narrated
+        self.exciting_developments = {}
 
     def add_transformer(self, transformer):
         self.transformers.append(transformer)
@@ -202,8 +206,14 @@ class Editor(object):
                 # this is the first sentence of the paragraph
                 # if the reader wasn't aware they were here, add an event
                 if self.last_seen_at.get(pov_actor, None) != event.location:
-                    if not (('went to' in event.phrase) or ('made <his-1> way to' in event.phrase) or (event.phrase == '<1> <was-1> in <2>')):
+                    if not (('went to' in event.phrase) or
+                            ('made <his-1> way to' in event.phrase) or
+                            (event.phrase == '<1> <was-1> in <2>')):
                         paragraph_events.append(Event('<1> <was-1> in <2>', [pov_actor, event.location]))
+                # if something exciting happened, tell the reader
+                for (obj, loc) in self.exciting_developments.get(pov_actor, []):
+                    paragraph_events.append(Event('<1> had found <2> in <3>', [pov_actor, obj, loc]))
+                self.exciting_developments[pov_actor] = []
 
             # update our idea of where the character is, even if these are
             # not events we will be dumping out
@@ -213,6 +223,11 @@ class Editor(object):
                 paragraph_events.append(event)
                 # update the reader's idea of where the character is
                 self.last_seen_at[event.initiator()] = event.location
+            else:
+                if event.exciting:
+                   self.exciting_developments.setdefault(event.initiator(), []).append(
+                       (event.participants[1], event.participants[2])
+                   )
 
         return paragraph_events
 

@@ -33,8 +33,11 @@ For more information, please refer to <http://unlicense.org/>
 
 -----------------------------------------------------------------------------
 
-All other files in this distribution, including the generated novels (in
-the `doc` directory) and The Swallows world and characters (in the
-`src/swallows/story` directory), have no explicit licensing terms yet.
-They will probably one day be released as open-source.  But that day is
-not yoday.  I'd like some time to mull it over.
+The generated novels (in the `doc` directory) are released under the
+Creative Commons Attribution 3.0 Unported license ("CC BY 3.0"):
+    
+    http://creativecommons.org/licenses/by/3.0/
+
+The Swallows world and characters (in the `src/swallows/story` directory)
+are released under an MIT-style license; see those files for the license
+text.

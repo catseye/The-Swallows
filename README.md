@@ -1,6 +1,15 @@
 The Swallows
 ============
 
+_See also:_ [The Swallows](https://github.com/catseye/The-Swallows) (2013)
+∘ [NaNoGenLab](https://github.com/catseye/NaNoGenLab) (2014)
+∘ [MARYSUE](https://github.com/catseye/MARYSUE) (2015)
+∘ [NaNoGenMo-Entries-2017](https://github.com/catseye/NaNoGenMo-Entries-2017)
+∘ [NaNoGenMo-Entries-2018](https://github.com/catseye/NaNoGenMo-Entries-2018)
+∘ [NaNoGenMo-Entries-2019](https://github.com/catseye/NaNoGenMo-Entries-2019)
+
+- - - -
+
 _The Swallows_ is a series of computer-generated novels meta-written for
 [NaNoGenMo 2013](https://github.com/dariusk/NaNoGenMo) by
 Cat's Eye Technologies.  Our submission issue can be found
